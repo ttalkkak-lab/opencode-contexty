@@ -26,8 +26,16 @@ export type ToolLogSpec = {
   parts: ToolLogEntry[];
 };
 
+export type ToolLogBlacklist = {
+  ids: string[];
+};
+
 const toolLogPath = (baseDir: string): string => {
   return path.join(baseDir, ".contexty", "tool-parts.json");
+};
+
+const toolLogBlacklistPath = (baseDir: string): string => {
+  return path.join(baseDir, ".contexty", "tool-parts.blacklist.json");
 };
 
 const ensureDir = async (baseDir: string): Promise<void> => {
@@ -50,6 +58,28 @@ export const readToolLog = async (baseDir: string): Promise<ToolLogSpec> => {
 export const writeToolLog = async (baseDir: string, spec: ToolLogSpec): Promise<void> => {
   await ensureDir(baseDir);
   const filePath = toolLogPath(baseDir);
+  await fs.writeFile(filePath, JSON.stringify(spec, null, 2), "utf8");
+};
+
+export const readToolLogBlacklist = async (baseDir: string): Promise<ToolLogBlacklist> => {
+  const filePath = toolLogBlacklistPath(baseDir);
+  try {
+    const raw = await fs.readFile(filePath, "utf8");
+    const parsed = JSON.parse(raw);
+    return {
+      ids: Array.isArray(parsed.ids) ? parsed.ids : []
+    };
+  } catch {
+    return { ids: [] };
+  }
+};
+
+export const writeToolLogBlacklist = async (
+  baseDir: string,
+  spec: ToolLogBlacklist
+): Promise<void> => {
+  await ensureDir(baseDir);
+  const filePath = toolLogBlacklistPath(baseDir);
   await fs.writeFile(filePath, JSON.stringify(spec, null, 2), "utf8");
 };
 

@@ -1,5 +1,5 @@
 import type { Plugin } from "@opencode-ai/plugin";
-import { readToolLog, writeToolLog } from "./utils/tool-log";
+import { readToolLog, readToolLogBlacklist, writeToolLog } from "./utils/tool-log";
 
 export const ContextyPlugin: Plugin = async ({ directory }) => {
   return {
@@ -11,7 +11,23 @@ export const ContextyPlugin: Plugin = async ({ directory }) => {
         )
       );
 
-      await writeToolLog(directory, { parts: toolPartsFromMessages });
+      const blacklist = await readToolLogBlacklist(directory);
+      const blacklistIds = new Set(blacklist.ids);
+
+      const persisted = await readToolLog(directory);
+      const existingIds = new Set(persisted.parts.map((part) => part.id));
+
+      const appendParts = toolPartsFromMessages.filter(
+        (part) => !blacklistIds.has(part.id) && !existingIds.has(part.id)
+      );
+
+      const mergedParts = [...persisted.parts, ...appendParts].filter(
+        (part) => !blacklistIds.has(part.id)
+      );
+
+      if (appendParts.length > 0 || persisted.parts.length !== mergedParts.length) {
+        await writeToolLog(directory, { parts: mergedParts });
+      }
 
       for (const message of output.messages) {
         message.parts = message.parts.filter(
@@ -19,13 +35,12 @@ export const ContextyPlugin: Plugin = async ({ directory }) => {
         );
       }
 
-      const toolLog = await readToolLog(directory);
-      if (toolLog.parts.length === 0) {
+      if (mergedParts.length === 0) {
         return;
       }
 
-      const partsByMessageID = new Map<string, typeof toolLog.parts>();
-      for (const part of toolLog.parts) {
+      const partsByMessageID = new Map<string, typeof mergedParts>();
+      for (const part of mergedParts) {
         if (!partsByMessageID.has(part.messageID)) {
           partsByMessageID.set(part.messageID, []);
         }
