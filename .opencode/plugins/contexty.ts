@@ -39,12 +39,40 @@ export const ContextyPlugin: Plugin = async ({ directory }) => {
         return;
       }
 
+      const messageIDs = new Set(output.messages.map((message) => message.info.id));
+      const fallbackMessageID =
+        [...output.messages].reverse().find((message) => message.info.role === "assistant")
+          ?.info.id ?? output.messages[output.messages.length - 1]?.info.id;
       const partsByMessageID = new Map<string, typeof mergedParts>();
       for (const part of mergedParts) {
-        if (!partsByMessageID.has(part.messageID)) {
-          partsByMessageID.set(part.messageID, []);
+        const resolvedMessageID = messageIDs.has(part.messageID)
+          ? part.messageID
+          : fallbackMessageID;
+        if (!resolvedMessageID) {
+          continue;
         }
-        partsByMessageID.get(part.messageID)?.push(part);
+        const contextyMetadata =
+          typeof part.metadata?.contexty === "object" && part.metadata?.contexty
+            ? (part.metadata.contexty as Record<string, unknown>)
+            : undefined;
+        const taggedPart = {
+          ...part,
+          messageID: resolvedMessageID,
+          metadata: {
+            ...part.metadata,
+            contexty: {
+              ...contextyMetadata,
+              source: "tool-log",
+              ...(resolvedMessageID !== part.messageID
+                ? { originalMessageID: part.messageID }
+                : {})
+            }
+          }
+        };
+        if (!partsByMessageID.has(resolvedMessageID)) {
+          partsByMessageID.set(resolvedMessageID, []);
+        }
+        partsByMessageID.get(resolvedMessageID)?.push(taggedPart);
       }
 
       for (const message of output.messages) {
