@@ -1,19 +1,27 @@
 {
-  "name": "contexty",
-  "version": "0.1.0",
-  "private": true,
+  "name": "opencode-contexty",
+  "version": "1.0.0",
+  "description": "OpenCode Plugin for Vibe Engineering - Context Management, Log Summarization, and Architecture Supervision",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "type": "module",
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist",
+    "build": "bun run tsc",
+    "dev": "tsc --watch",
     "test": "bun test",
-    "lint": "bun --check src/index.ts",
-    "format": "bunx prettier --write src"
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "prepublishOnly": "bun run build"
   },
+  "packageManager": "bun@1.0.0",
   "dependencies": {
     "@opencode-ai/plugin": "latest"
   },
   "devDependencies": {
     "bun-types": "latest",
     "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

@@ -1,0 +1,13 @@
+{
+  "$schema": "./contexty.schema.json",
+  "aasm": {
+    "enabled": true,
+    "defaultMode": "passive",
+    "architectureFile": ".architecture.yaml",
+    "mode": "active",
+    "enableLinting": true,
+    "confidenceThreshold": 0.7,
+    "llmLint": "always",
+    "model": "google/antigravity-gemini-3-flash"
+  }
+}

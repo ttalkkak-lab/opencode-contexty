@@ -1,88 +1,51 @@
-import type { Plugin } from "@opencode-ai/plugin";
-import { readToolLog, readToolLogBlacklist, writeToolLog } from "./utils/tool-log";
+import type { Plugin } from '@opencode-ai/plugin';
+import * as path from 'path';
+import * as fs from 'fs';
+import { Logger } from './utils';
+import { AASMModule } from './aasm';
+import { createAASMChatHook, createHSCMMTransformHook } from './hooks';
+import { createAgentTool } from './tools';
+import { ContextyConfig } from './types';
 
-export const ContextyPlugin: Plugin = async ({ directory }) => {
-  return {
-    "tool.execute.after": async (_input, _output) => {},
-    "experimental.chat.messages.transform": async (_input, output) => {
-      const toolPartsFromMessages = output.messages.flatMap((message) =>
-        message.parts.filter(
-          (part) => part.type === "tool" && part.metadata?.contexty?.source !== "tool-log"
-        )
-      );
+export const ContextyPlugin: Plugin = async ({ client, directory }) => {
+  // Initialize Logger for server-side logging
+  Logger.setClient(client);
 
-      const blacklist = await readToolLogBlacklist(directory);
-      const blacklistIds = new Set(blacklist.ids);
+  const defaultConfig: ContextyConfig = {
+    aasm: {
+      mode: 'active',
+      enableLinting: true,
+      confidenceThreshold: 0.7,
+      llmLint: 'never',
+    },
+  };
 
-      const persisted = await readToolLog(directory);
-      const existingIds = new Set(persisted.parts.map((part) => part.id));
+  let config = defaultConfig;
+  const configPath = path.join(directory, 'contexty.config.json');
 
-      const appendParts = toolPartsFromMessages.filter(
-        (part) => !blacklistIds.has(part.id) && !existingIds.has(part.id)
-      );
-
-      const mergedParts = [...persisted.parts, ...appendParts].filter(
-        (part) => !blacklistIds.has(part.id)
-      );
-
-      if (appendParts.length > 0 || persisted.parts.length !== mergedParts.length) {
-        await writeToolLog(directory, { parts: mergedParts });
-      }
-
-      for (const message of output.messages) {
-        message.parts = message.parts.filter(
-          (part) => part.type !== "tool" && part.metadata?.contexty?.source !== "tool-log"
-        );
-      }
-
-      if (mergedParts.length === 0) {
-        return;
-      }
-
-      const messageIDs = new Set(output.messages.map((message) => message.info.id));
-      const fallbackMessageID =
-        [...output.messages].reverse().find((message) => message.info.role === "assistant")
-          ?.info.id ?? output.messages[output.messages.length - 1]?.info.id;
-      const partsByMessageID = new Map<string, typeof mergedParts>();
-      for (const part of mergedParts) {
-        const resolvedMessageID = messageIDs.has(part.messageID)
-          ? part.messageID
-          : fallbackMessageID;
-        if (!resolvedMessageID) {
-          continue;
-        }
-        const contextyMetadata =
-          typeof part.metadata?.contexty === "object" && part.metadata?.contexty
-            ? (part.metadata.contexty as Record<string, unknown>)
-            : undefined;
-        const taggedPart = {
-          ...part,
-          messageID: resolvedMessageID,
-          metadata: {
-            ...part.metadata,
-            contexty: {
-              ...contextyMetadata,
-              source: "tool-log",
-              ...(resolvedMessageID !== part.messageID
-                ? { originalMessageID: part.messageID }
-                : {})
-            }
-          }
-        };
-        if (!partsByMessageID.has(resolvedMessageID)) {
-          partsByMessageID.set(resolvedMessageID, []);
-        }
-        partsByMessageID.get(resolvedMessageID)?.push(taggedPart);
-      }
-
-      for (const message of output.messages) {
-        const parts = partsByMessageID.get(message.info.id);
-        if (!parts || parts.length === 0) {
-          continue;
-        }
-        message.parts = [...message.parts, ...parts];
-      }
+  try {
+    if (fs.existsSync(configPath)) {
+      const userConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      config = {
+        ...defaultConfig,
+        aasm: { ...defaultConfig.aasm, ...userConfig.aasm },
+        // Preserve other optional configs if present
+        hscmm: userConfig.hscmm,
+        tls: userConfig.tls,
+      };
     }
+  } catch (error) {
+    Logger.warn(`Failed to load config from ${configPath}, using defaults.`);
+  }
+
+  const aasm = new AASMModule(config, client);
+
+  return {
+    tool: {
+      agent: createAgentTool(aasm),
+    },
+    'chat.message': createAASMChatHook(aasm, client),
+    'experimental.chat.messages.transform': createHSCMMTransformHook(directory),
   };
 };
 
