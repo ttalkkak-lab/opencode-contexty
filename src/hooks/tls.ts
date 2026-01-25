@@ -1,1 +1,1 @@
-export { createTLSHook } from "../tls";
+export { createTLSEventHook } from '../tls';

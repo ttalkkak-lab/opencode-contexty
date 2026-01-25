@@ -105,6 +105,28 @@ HSCMM의 컨텍스트 효율성을 높이기 위한 보조 도구:
 - Ollama 로컬 LLM으로 핵심 원인만 추출
 - 메인 모델의 컨텍스트 윈도우 낭비 방지
 
+**새로운 기능: TLS Shell** 🔍
+
+OpenCode에서 `/tls`를 입력하면 **TLS 기능이 적용된 특별한 터미널**이 열립니다:
+
+- 일반 shell: `!` → 일반 터미널
+- TLS Shell: `/tls` → 명령어 실행 시 자동 요약
+
+**사용 예시**:
+
+```bash
+# OpenCode 채팅에서
+/tls
+
+# TLS Shell이 열리고 명령어 실행
+$ npm install
+
+# 명령어 실행 완료 시 자동으로 요약 표시
+🔍 TLS - LOG SUMMARY
+✅ npm install completed successfully
+📦 Installed 245 packages in 3.2s
+```
+
 **예시 출력**:
 
 ```
@@ -202,6 +224,45 @@ ollama pull gemma2:2b
 
 # Verify
 ollama list
+```
+
+### TLS Shell 사용법
+
+#### 기본 사용
+
+```bash
+# OpenCode 채팅에서 /tls 입력
+/tls
+
+# TLS Shell이 열리면 일반 터미널처럼 사용
+$ ls -la
+$ git status
+$ npm test
+
+# 각 명령어 실행 완료 시 자동으로 요약이 표시됩니다
+```
+
+#### 명령어와 함께 실행
+
+```bash
+# 특정 명령어를 즉시 실행하면서 TLS Shell 열기
+/tls npm install
+
+# 명령어 실행 후 TLS Shell이 유지됩니다
+```
+
+#### 일반 터미널 vs TLS Shell
+
+```bash
+# 일반 터미널 (요약 없음)
+!
+→ 일반 터미널 열림
+
+# TLS Shell (자동 요약)
+/tls
+→ 🔍 TLS Shell 열림
+→ 명령어 실행 시 자동으로 요약 표시
+→ 긴 로그도 핵심만 추출
 ```
 
 ---

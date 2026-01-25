@@ -1,14 +1,19 @@
 import type { Plugin } from '@opencode-ai/plugin';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { Logger } from './utils';
+import { Logger } from './utils/index';
 import { AASMModule } from './aasm';
-import { createAASMChatHook, createHSCMMTransformHook, createTLSHook } from './hooks';
-import { createAgentTool } from './tools';
+import {
+  createAASMChatHook,
+  createHSCMMTransformHook,
+  createTLSEventHook,
+  createTLSChatHook,
+} from './hooks';
+import { TLSModule } from './tls';
+import { createAgentTool, createTLSTool } from './tools';
 import { ContextyConfig } from './types';
 
 export const ContextyPlugin: Plugin = async ({ client, directory }) => {
-  // Initialize Logger for server-side logging
   Logger.setClient(client);
 
   const defaultConfig: ContextyConfig = {
@@ -30,12 +35,11 @@ export const ContextyPlugin: Plugin = async ({ client, directory }) => {
       config = {
         ...defaultConfig,
         aasm: { ...defaultConfig.aasm, ...userConfig.aasm },
-        // Preserve other optional configs if present
         hscmm: userConfig.hscmm,
         tls: userConfig.tls,
       };
     } catch {
-      // Config file doesn't exist or is not accessible, ignore
+      // Config file doesn't exist or is not accessible
     }
   } catch (error) {
     Logger.warn(
@@ -46,15 +50,33 @@ export const ContextyPlugin: Plugin = async ({ client, directory }) => {
   }
 
   const aasm = new AASMModule(config, client);
+  const tlsModule = new TLSModule(client, config.tls);
+
+  console.log('[Contexty Plugin] Loading plugin...');
+  console.log('[Contexty Plugin] Creating tools: agent, tls');
+
+  const aasmChatHook = createAASMChatHook(aasm, client);
+  const tlsChatHook = createTLSChatHook(tlsModule, client);
+
+  const combinedChatHook = async (
+    input: Parameters<typeof aasmChatHook>[0],
+    output: Parameters<typeof aasmChatHook>[1]
+  ) => {
+    await tlsChatHook(input, output);
+    await aasmChatHook(input, output);
+  };
 
   return {
     tool: {
       agent: createAgentTool(aasm),
+      tls: createTLSTool(tlsModule, client),
     },
-    'chat.message': createAASMChatHook(aasm, client),
+    'chat.message': combinedChatHook,
     'experimental.chat.messages.transform': createHSCMMTransformHook(directory),
-    event: createTLSHook(client)
+    event: createTLSEventHook(tlsModule),
   };
 };
+
+console.log('[Contexty Plugin] Plugin exported successfully');
 
 export default ContextyPlugin;
