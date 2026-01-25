@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { Logger } from './utils';
 import { AASMModule } from './aasm';
-import { createAASMChatHook, createHSCMMTransformHook } from './hooks';
+import { createAASMChatHook, createHSCMMTransformHook, createTLSHook } from './hooks';
 import { createAgentTool } from './tools';
 import { ContextyConfig } from './types';
 
@@ -53,6 +53,7 @@ export const ContextyPlugin: Plugin = async ({ client, directory }) => {
     },
     'chat.message': createAASMChatHook(aasm, client),
     'experimental.chat.messages.transform': createHSCMMTransformHook(directory),
+    event: createTLSHook(client)
   };
 };
 
