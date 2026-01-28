@@ -15,7 +15,8 @@
   },
   "packageManager": "bun@1.0.0",
   "dependencies": {
-    "@opencode-ai/plugin": "latest"
+    "@opencode-ai/plugin": "latest",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "bun-types": "latest",
