@@ -10,7 +10,7 @@ import {
   createTLSChatHook,
 } from './hooks';
 import { TLSModule } from './tls';
-import { createAgentTool, createTLSTool } from './tools';
+import { createTLSTool } from './tools';
 import { ContextyConfig } from './types';
 
 export const ContextyPlugin: Plugin = async ({ client, directory }) => {
@@ -68,7 +68,6 @@ export const ContextyPlugin: Plugin = async ({ client, directory }) => {
 
   return {
     tool: {
-      agent: createAgentTool(aasm),
       tls: createTLSTool(tlsModule, client),
     },
     'chat.message': combinedChatHook,

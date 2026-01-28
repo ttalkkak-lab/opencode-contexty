@@ -27,7 +27,7 @@ const DEFAULT_CONFIG: Required<TLSConfig> = {
   modelName: 'gemma3:1b',
   ollamaUrl: 'http://127.0.0.1:11434',
   logSizeThreshold: 2000,
-  debug: false,
+  debug: true,
 };
 
 export class TLSModule {

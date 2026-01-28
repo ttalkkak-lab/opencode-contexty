@@ -8,6 +8,8 @@ export function createTLSTool(
 ): ReturnType<typeof tool> {
   console.log('[TLS Tool] Creating TLS tool...');
   return tool({
+    // @ts-ignore
+    name: 'tls',
     description: 'TLS Shell - Open a terminal with automatic log summarization powered by Ollama',
     args: {
       command: tool.schema
@@ -24,6 +26,7 @@ export function createTLSTool(
 
         console.log('[TLS Tool] Opening TLS Shell...');
         console.log('[TLS Tool] Command:', commandAfterPrefix);
+        console.log('[TLS Tool] Current working directory:', process.cwd());
 
         await client.tui.showToast({
           body: {
@@ -35,6 +38,7 @@ export function createTLSTool(
         });
 
         const shellCommand = process.env.SHELL || '/bin/zsh';
+        console.log('[TLS Tool] Using shell:', shellCommand);
 
         // TLS Shell 배너 스크립트
         const tlsBanner = `
@@ -55,6 +59,9 @@ echo ""
           ? `${tlsBanner}; ${commandAfterPrefix}; exec ${shellCommand}`
           : `${tlsBanner}; exec ${shellCommand}`;
 
+        console.log('[TLS Tool] Init command length:', initCommand.length);
+
+        console.log('[TLS Tool] Requesting PTY creation...');
         const ptyResult = await client.pty.create({
           body: {
             title: TLS_SHELL_TITLE,
@@ -63,17 +70,22 @@ echo ""
             cwd: process.cwd(),
           },
         });
+        console.log('[TLS Tool] PTY creation result:', JSON.stringify(ptyResult));
 
         if (ptyResult.data) {
           const ptyId = ptyResult.data.id;
+          console.log('[TLS Tool] PTY created with ID:', ptyId);
 
           // TLS 추적 활성화
           tlsModule.addTLSPtySession(ptyId);
+          console.log('[TLS Tool] Added PTY to TLS tracking');
 
           // PTY 연결
+          console.log('[TLS Tool] Connecting to PTY...');
           await client.pty.connect({
             path: { id: ptyId },
           });
+          console.log('[TLS Tool] Connected to PTY');
 
           const displayMessage = commandAfterPrefix
             ? `🔍 TLS 모드로 실행: ${commandAfterPrefix}\n\n✅ TLS Shell 활성화됨\n📊 명령어 자동 감지 ON\n🤖 Ollama 요약 준비 완료`
@@ -104,12 +116,14 @@ echo ""
             ptyId: ptyId,
           });
         } else {
+          console.error('[TLS Tool] Failed to create PTY. Result data is null.');
           return JSON.stringify({
             success: false,
             error: 'Failed to create PTY',
           });
         }
       } catch (error) {
+        console.error('[TLS Tool] Error executing tool:', error);
         const errorMessage = error instanceof Error ? error.message : String(error);
         await client.tui.showToast({
           body: {
