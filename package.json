@@ -1,9 +1,35 @@
 {
-  "name": "opencode-contexty",
-  "version": "1.0.0",
-  "description": "OpenCode Plugin for Vibe Engineering - Context Management, Log Summarization, and Architecture Supervision",
+  "name": "@ttalkkak-lab/opencode-contexty",
+  "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "OpenCode Plugin for Vibe Engineering with HSCMM and AASM",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "opencode.json",
+    "README.md"
+  ],
+  "keywords": [
+    "opencode",
+    "plugin",
+    "context-management",
+    "hscmm",
+    "aasm",
+    "vibe-engineering"
+  ],
+  "author": "Korea ttalkkak Lab",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ttalkkak-lab/opencode-contexty.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ttalkkak-lab/opencode-contexty/issues"
+  },
+  "homepage": "https://github.com/ttalkkak-lab/opencode-contexty#readme",
   "type": "module",
   "scripts": {
     "build": "bun run tsc",
