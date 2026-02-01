@@ -27,7 +27,7 @@ export class TLSModule {
     this.shell = new Shell($);
     this.internalModel = new SubsessionHelper(client, subsessionConfig);
   }
-  
+
   async executeTLS(command: string, sessionID: string): Promise<TLSResult> {
     const output = await this.shell.execute(command);
     const prompt = this.createSummaryPrompt(command, output);
@@ -37,6 +37,20 @@ export class TLSModule {
       output: output,
       summary: summary
     }
+  }
+
+  createTemplate(result: TLSResult): string {
+    return (
+`Print the text exactly as it is, up until the <tls-output-end> tag.
+----------------------------------------------------
+${result.command}
+----------------------------------------------------
+${result.output}
+----------------------------------------------------
+summary:
+ ${result.summary}
+<tls-output-end>`
+    )
   }
 
   private createSummaryPrompt(command: string, output: string): string {
