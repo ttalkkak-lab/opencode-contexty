@@ -41,7 +41,7 @@ export class TLSModule {
 
   createTemplate(result: TLSResult): string {
     return (
-`Provide the verbatim content located after <tls-output-start> and before <tls-output-end>. Do not modify any characters.
+`Repeat content located after <tls-output-start> and before <tls-output-end>. Do not modify or add any characters.
 <tls-output-start>
 ----------------------------------------------------
 ${result.command}
