@@ -44,7 +44,7 @@ export const IDE_CONFIGS: Record<Exclude<IDEType, 'none'>, IDEConfig> = {
   },
 };
 
-export const EXTENSION_ID = 'ttalkkak-lab.opencode-contexty-extension';
+export const EXTENSION_ID = 'ttalkkak-lab.contexty-hscmm';
 export const EXTENSION_REPO = 'https://github.com/ttalkkak-lab/opencode-contexty-extension';
 
 function checkCliAvailable(cliCommand: string): boolean {
