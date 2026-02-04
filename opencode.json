@@ -1,4 +1,4 @@
 {
-  "plugin": ["./tls-plugin/dist/index.js"],
+  "plugin": ["./dist/index.js"],
   "$schema": "https://opencode.ai/config.json"
 }
