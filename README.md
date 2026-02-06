@@ -208,18 +208,13 @@ The **Context Explorer** extension is automatically installed during setup and p
 | Feature                  | Description                                                                                       |
 | ------------------------ | ------------------------------------------------------------------------------------------------- |
 | **Context Explorer**     | Hierarchical tree view in the Explorer sidebar showing all files with context parts               |
-| **Add Files to Context** | Right-click files/folders or use `Cmd+Shift+A` (Mac) / `Ctrl+Shift+A` (Windows) to add to context |
+| **Drag & Drop**          | Drag files or folders directly into Context Explorer to add them to context                       |
+| **Add Files to Context** | Right-click files/folders to add to context                                                       |
 | **Add Selections**       | Select text and add via right-click, status bar button, or CodeLens overlay                       |
 | **Remove from Context**  | Inline remove buttons on parts and files in the tree view                                         |
 | **Context Highlighting** | Lines included in context are highlighted with a light blue background in the editor              |
 | **Auto-Refresh**         | Tree view automatically updates when files change                                                 |
 | **Blacklist Support**    | Removed parts are stored in `.contexty/tool-parts.blacklist.json` for permanent exclusion         |
-
-### Keyboard Shortcuts
-
-| Shortcut                       | Action                                   |
-| ------------------------------ | ---------------------------------------- |
-| `Cmd+Shift+A` / `Ctrl+Shift+A` | Add current file or selection to context |
 
 ### Why a Separate Extension?
 
