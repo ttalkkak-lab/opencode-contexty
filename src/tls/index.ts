@@ -36,17 +36,25 @@ export class TLSModule {
     try {
       output = await this.shell.execute(command);
 
-      await this.client.tui.showToast({
-        body: {
-          title: 'TLS Info',
-          message: `✅ Success to run '${command}.'\n\nSummarizing...`,
-          variant: 'info',
-          duration: 20000
-        }
-      });
+      const progressIcons = ['   ', '.  ', '.. ', '...', '...', '.. ', '.  ', '   '];
+      let index = 0;
+
+      const summarizationInterval = setInterval(()=>{
+        this.client.tui.showToast({
+          body: {
+            title: 'TLS Info',
+            message: `✅ Success to run '${command.substring(0, 16)}'.\nSummarizing${progressIcons[index]}`,
+            variant: 'info',
+            duration: 500
+          }
+        });
+        index = (index + 1) % progressIcons.length;
+      }, 175);
 
       const prompt = this.createSummaryPrompt(command, output);
       summary = await this.internalModel.callLLM(prompt, sessionID);
+      clearInterval(summarizationInterval);
+
       if (summary === '') throw new SummarizationFailError('Fail to call LLM.');
 
       await this.client.tui.showToast({
