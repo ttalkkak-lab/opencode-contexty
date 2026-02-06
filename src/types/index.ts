@@ -76,11 +76,9 @@ export interface ContextyConfig {
     snapshotDir: string;
   };
   /** TLS settings (Optional) */
-  tls?: {
+  tls: {
     enabled: boolean;
-    modelName: string;
-    ollamaUrl: string;
-    logSizeThreshold: number;
+    model?: string;
   };
   /** AASM settings */
   aasm: {

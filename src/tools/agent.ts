@@ -1,7 +1,7 @@
 import { tool } from '@opencode-ai/plugin';
 import type { AASMModule } from '../aasm';
 
-export function createAgentTool(aasm: AASMModule) {
+export function createAgentTool(aasm: AASMModule): ReturnType<typeof tool> {
   return tool({
     description:
       'AASM - Architecture supervision mode control. Use this to enable/disable/check architecture linting.',

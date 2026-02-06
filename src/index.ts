@@ -1,13 +1,16 @@
-import type { Plugin } from '@opencode-ai/plugin';
+import type { Plugin, PluginInput } from '@opencode-ai/plugin';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { Logger } from './utils';
 import { AASMModule } from './aasm';
-import { createAASMChatHook, createHSCMMTransformHook } from './hooks';
+import { createAASMChatHook, createHSCMMTransformHook, createTLSCommandHook } from './hooks';
 import { createAgentTool } from './tools';
 import { ContextyConfig } from './types';
+import { TLSModule } from './tls';
 
-export const ContextyPlugin: Plugin = async ({ client, directory }) => {
+export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
+  const {client, directory} = pluginInput;
+
   // Initialize Logger for server-side logging
   Logger.setClient(client);
 
@@ -18,6 +21,9 @@ export const ContextyPlugin: Plugin = async ({ client, directory }) => {
       enableLinting: true,
       confidenceThreshold: 0.7,
     },
+    tls: {
+      enabled: true
+    }
   };
 
   let config = defaultConfig;
@@ -46,12 +52,14 @@ export const ContextyPlugin: Plugin = async ({ client, directory }) => {
   }
 
   const aasm = new AASMModule(config, client, configPath);
+  const tls = new TLSModule(pluginInput, config, configPath);
 
   return {
     tool: {
       aasm: createAgentTool(aasm),
     },
     'chat.message': createAASMChatHook(aasm, client),
+    'command.execute.before': createTLSCommandHook(tls, pluginInput),
     'experimental.chat.messages.transform': createHSCMMTransformHook(directory),
   };
 };

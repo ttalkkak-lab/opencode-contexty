@@ -23,6 +23,8 @@ export function createAASMChatHook(aasm: AASMModule, client: OpencodeClient) {
 
     const textParts = output.parts.filter((p: any) => p.type === 'text');
 
+    if (textParts.some((p: any) => p.id === 'tls-part')) return;
+
     const userMessage = textParts
       .map((p: any) => {
         if (typeof p.text === 'string') return p.text;
