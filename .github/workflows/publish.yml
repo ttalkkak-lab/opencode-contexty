@@ -1,0 +1,46 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # 필수: npm Trusted Publishing 인증용
+jobs:
+  publish:
+    name: Build and Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      # Node.js 설정 (registry-url 제거 - Trusted Publishing 사용 시 불필요)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      # 정식 릴리즈 -> latest 태그로 배포
+      # NODE_AUTH_TOKEN 제거 (Trusted Publishing이 알아서 함)
+      - name: Publish to npm (Latest)
+        if: github.event.release.prerelease == false
+        run: npm publish
+
+      # 프리릴리즈 -> next 태그로 배포
+      - name: Publish to npm (Beta)
+        if: github.event.release.prerelease == true
+        run: npm publish --tag next

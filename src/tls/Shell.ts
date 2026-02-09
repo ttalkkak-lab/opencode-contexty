@@ -1,4 +1,5 @@
 import type { PluginInput } from '@opencode-ai/plugin';
+import { ShellRunningError } from './errors';
 
 export class Shell {
   private cwd: string;
@@ -15,7 +16,8 @@ export class Shell {
     const splited_command = command.split(" ");
     return await this.$`${splited_command}`
       .cwd(this.cwd)
-      .text();
+      .text()
+      .catch(()=>{throw new ShellRunningError("Fail to run commad.")});
   }
   
   setCwd(newCwd: string) {
