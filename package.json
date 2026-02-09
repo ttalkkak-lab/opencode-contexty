@@ -8,7 +8,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "opencode-contexty": "./dist/cli/index.js"
+    "opencode-contexty": "dist/cli/index.js"
   },
   "files": [
     "dist",
@@ -28,7 +28,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ttalkkak-lab/opencode-contexty.git"
+    "url": "git+https://github.com/ttalkkak-lab/opencode-contexty.git"
   },
   "bugs": {
     "url": "https://github.com/ttalkkak-lab/opencode-contexty/issues"
