@@ -38,7 +38,7 @@ function getFilePathForWrite(args: any): string | null {
   return typeof args.file_path === 'string' ? args.file_path : null;
 }
 
-function getFilePathForRead(args: any): string | null {
+function getFilePathForRead(input: ToolExecuteBeforeInput, args: any): string | null {
   if (!args || typeof args !== 'object') {
     return null;
   }
@@ -49,6 +49,17 @@ function getFilePathForRead(args: any): string | null {
 
   if (typeof args.path === 'string') {
     return args.path;
+  }
+
+  if (input.tool === 'glob' && typeof args.pattern === 'string') {
+    const dir = args.pattern.replace(/[*{}[\]!]/g, '').replace(/\/+/g, '/').trim();
+    return dir.length > 0 ? dir : '.';
+  }
+
+  if (input.tool === 'grep') {
+    if (typeof args.include === 'string') {
+      return args.include;
+    }
   }
 
   return null;
@@ -101,7 +112,7 @@ export function createToolExecuteBeforeHook(acpm: ACPMModule, client: OpencodeCl
       }
 
       if (category && FILE_READ_TOOLS.has(category)) {
-        const filePath = getFilePathForRead(output.args);
+        const filePath = getFilePathForRead(input, output.args);
 
         if (filePath) {
           const access = evaluator.checkFolderAccess(filePath, 'read');
