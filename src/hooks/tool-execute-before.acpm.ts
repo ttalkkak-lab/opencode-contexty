@@ -65,8 +65,11 @@ function getFilePathForRead(input: ToolExecuteBeforeInput, args: any): string | 
   return null;
 }
 
-function blockExecution(output: ToolExecuteBeforeOutput): void {
-  output.args = {};
+class ACPMBlockedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ACPMBlockedError';
+  }
 }
 
 async function showBlockedToast(client: OpencodeClient, title: string, message: string): Promise<void> {
@@ -81,56 +84,44 @@ async function showBlockedToast(client: OpencodeClient, title: string, message: 
 }
 
 export function createToolExecuteBeforeHook(acpm: ACPMModule, client: OpencodeClient) {
-  return async (input: ToolExecuteBeforeInput, output: ToolExecuteBeforeOutput) => {
-    try {
-      const category = getToolCategory(input.tool);
+  return async (input: ToolExecuteBeforeInput, _output: ToolExecuteBeforeOutput): Promise<void> => {
+    const category = getToolCategory(input.tool);
 
-      if (!getToolPermissionEnabled(acpm, category)) {
-        await showBlockedToast(
-          client,
-          '🚫 Tool blocked',
-          `${input.tool} is disabled by the active permission preset.`
-        );
-        blockExecution(output);
-        return;
-      }
-
-      const evaluator = acpm.getEvaluator();
-
-      if (category && FILE_WRITE_TOOLS.has(category)) {
-        const filePath = getFilePathForWrite(output.args);
-
-        if (filePath) {
-          const access = evaluator.checkFolderAccess(filePath, 'write');
-
-          if (!access.allowed) {
-            await showBlockedToast(client, '🚫 Write blocked', access.reason ?? `Write denied for ${filePath}`);
-            blockExecution(output);
-            return;
-          }
-        }
-      }
-
-      if (category && FILE_READ_TOOLS.has(category)) {
-        const filePath = getFilePathForRead(input, output.args);
-
-        if (filePath) {
-          const access = evaluator.checkFolderAccess(filePath, 'read');
-
-          if (!access.allowed) {
-            await showBlockedToast(client, '🚫 Read blocked', access.reason ?? `Read denied for ${filePath}`);
-            blockExecution(output);
-            return;
-          }
-        }
-      }
-    } catch (error) {
+    if (!getToolPermissionEnabled(acpm, category)) {
       await showBlockedToast(
         client,
         '🚫 Tool blocked',
-        error instanceof Error ? error.message : 'Permission check failed.'
+        `${input.tool} is disabled by the active permission preset.`
       );
-      blockExecution(output);
+      throw new ACPMBlockedError(`${input.tool} is disabled by the active permission preset.`);
+    }
+
+    const evaluator = acpm.getEvaluator();
+
+    if (category && FILE_WRITE_TOOLS.has(category)) {
+      const filePath = getFilePathForWrite(_output.args);
+
+      if (filePath) {
+        const access = evaluator.checkFolderAccess(filePath, 'write');
+
+        if (!access.allowed) {
+          await showBlockedToast(client, '🚫 Write blocked', access.reason ?? `Write denied for ${filePath}`);
+          throw new ACPMBlockedError(access.reason ?? `Write denied for ${filePath}`);
+        }
+      }
+    }
+
+    if (category && FILE_READ_TOOLS.has(category)) {
+      const filePath = getFilePathForRead(input, _output.args);
+
+      if (filePath) {
+        const access = evaluator.checkFolderAccess(filePath, 'read');
+
+        if (!access.allowed) {
+          await showBlockedToast(client, '🚫 Read blocked', access.reason ?? `Read denied for ${filePath}`);
+          throw new ACPMBlockedError(access.reason ?? `Read denied for ${filePath}`);
+        }
+      }
     }
   };
 }

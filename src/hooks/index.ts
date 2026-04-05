@@ -4,3 +4,4 @@ export * from './command-execute-before.tls'
 export * from './permission-ask.acpm';
 export * from './system-transform.acpm';
 export * from './tool-execute-before.acpm';
+export * from './tool-execute-after.acpm';

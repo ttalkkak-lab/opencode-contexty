@@ -11,6 +11,7 @@ import {
   createSystemTransformHook,
   createTLSCommandHook,
   createToolExecuteBeforeHook,
+  createToolExecuteAfterHook,
 } from './hooks';
 import { createAgentTool } from './tools';
 import { ContextyConfig } from './types';
@@ -72,6 +73,7 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
     'command.execute.before': createTLSCommandHook(tls, pluginInput),
     'experimental.chat.messages.transform': createHSCMMTransformHook(directory),
     'tool.execute.before': createToolExecuteBeforeHook(acpm, client),
+    'tool.execute.after': createToolExecuteAfterHook(acpm),
     'permission.ask': createPermissionAskHook(acpm),
     'experimental.chat.system.transform': createSystemTransformHook(acpm),
   };

@@ -32,9 +32,10 @@ describe('createToolExecuteBeforeHook', () => {
     const hook = createToolExecuteBeforeHook(module, client as any);
     const output: { args: any } = { args: { command: 'ls' } };
 
-    await hook({ tool: 'bash', sessionID: 's1', callID: 'c1' }, output);
+    await expect(
+      hook({ tool: 'bash', sessionID: 's1', callID: 'c1' }, output)
+    ).rejects.toThrow('bash is disabled by the active permission preset.');
 
-    expect(output.args).toEqual({});
     expect(client.tui.showToast).toHaveBeenCalledTimes(1);
     await fs.rm(tempDir, { recursive: true, force: true });
   });
@@ -71,9 +72,10 @@ describe('createToolExecuteBeforeHook', () => {
     const hook = createToolExecuteBeforeHook(module, client as any);
     const output: { args: any } = { args: { file_path: '/workspace/private/secret.txt' } };
 
-    await hook({ tool: 'edit', sessionID: 's1', callID: 'c1' }, output);
+    await expect(
+      hook({ tool: 'edit', sessionID: 's1', callID: 'c1' }, output)
+    ).rejects.toThrow('Denied by folder rule /workspace/private');
 
-    expect(output.args).toEqual({});
     expect(client.tui.showToast).toHaveBeenCalledTimes(1);
     await fs.rm(tempDir, { recursive: true, force: true });
   });
@@ -93,9 +95,10 @@ describe('createToolExecuteBeforeHook', () => {
     const hook = createToolExecuteBeforeHook(module, client as any);
     const output: { args: any } = { args: { file_path: '/workspace/docs/file.txt' } };
 
-    await hook({ tool: 'edit', sessionID: 's1', callID: 'c1' }, output);
+    await expect(
+      hook({ tool: 'edit', sessionID: 's1', callID: 'c1' }, output)
+    ).rejects.toThrow('Write blocked by read-only folder rule /workspace/docs');
 
-    expect(output.args).toEqual({});
     expect(client.tui.showToast).toHaveBeenCalledTimes(1);
     await fs.rm(tempDir, { recursive: true, force: true });
   });
