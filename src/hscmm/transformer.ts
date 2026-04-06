@@ -90,6 +90,22 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule) {
     try {
       const metricsSessionId = sessionTracker.getSessionId();
       if (metricsSessionId && acpm) {
+        // DEBUG: dump first message info shape
+        const first = output.messages[0];
+        if (first) {
+          console.log('[transform] first message info keys:', Object.keys(first.info));
+          console.log('[transform] first message info.tokens:', (first.info as any).tokens);
+          console.log('[transform] first message parts count:', first.parts.length);
+          if (first.parts[0]) {
+            console.log('[transform] first part type:', first.parts[0].type, 'keys:', Object.keys(first.parts[0]).join(','));
+          }
+        }
+        const last = output.messages[output.messages.length - 1];
+        if (last) {
+          console.log('[transform] last message info keys:', Object.keys(last.info));
+          console.log('[transform] last message info.role:', last.info.role);
+          console.log('[transform] last message info.tokens:', (last.info as any).tokens);
+        }
         const collector = new MetricsCollector(directory);
         const snapshot = collector.collect(output.messages, metricsSessionId);
         const acpmMetrics = buildAcpmMetrics(acpm, acpmCounter);

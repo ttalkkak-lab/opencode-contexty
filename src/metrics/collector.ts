@@ -57,7 +57,7 @@ function isErrorStatus(status: unknown): boolean {
 export class MetricsCollector {
   constructor(private readonly directory: string) {}
 
-  collect(messages: Message[], sessionId = 'unknown'): MetricsSnapshot {
+  collect(messages: any[], sessionId = 'unknown'): MetricsSnapshot {
     void this.directory;
 
     const tokens: TokenMetrics = {
