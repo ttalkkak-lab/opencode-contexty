@@ -1,6 +1,7 @@
 import type { OpencodeClient, UserMessage, Part } from '@opencode-ai/sdk';
 import type { AASMModule } from '../aasm';
 import { isAASMSubsession } from '../aasm/SubsessionHelper';
+import { sessionTracker } from '../core/sessionTracker';
 
 export function createAASMChatHook(aasm: AASMModule, client: OpencodeClient) {
   return async (
@@ -13,6 +14,8 @@ export function createAASMChatHook(aasm: AASMModule, client: OpencodeClient) {
     },
     output: { message: UserMessage; parts: Part[] }
   ) => {
+    sessionTracker.setSessionId(input.sessionID);
+
     if (isAASMSubsession(input.sessionID)) {
       return;
     }
