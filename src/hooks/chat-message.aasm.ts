@@ -8,7 +8,7 @@ import * as path from 'path';
 let lastTitleCacheTime = 0;
 const TITLE_CACHE_INTERVAL = 5 * 60 * 1000;
 
-async function cacheSessionTitles(client: OpencodeClient): Promise<void> {
+async function cacheSessionTitles(client: OpencodeClient, directory: string): Promise<void> {
   const now = Date.now();
   if (now - lastTitleCacheTime < TITLE_CACHE_INTERVAL) {
     return;
@@ -16,26 +16,35 @@ async function cacheSessionTitles(client: OpencodeClient): Promise<void> {
   lastTitleCacheTime = now;
 
   try {
-    const result = await (client as any).experimental.session.list();
-    const sessions = result.data;
+    const exp = (client as any).experimental;
+    if (!exp?.session?.list) {
+      console.error('[Contexty] cacheSessionTitles: client.experimental.session.list not available');
+      return;
+    }
+    const result = await exp.session.list();
+    const sessions = result?.data;
     if (!Array.isArray(sessions)) {
+      console.error('[Contexty] cacheSessionTitles: unexpected response', typeof result?.data);
       return;
     }
 
     for (const session of sessions) {
-      if (!session?.id || !session?.title) {
+      if (!session?.id) {
         continue;
       }
-      const sessionDir = path.join(process.cwd(), '.contexty', 'sessions', session.id);
+      const sessionDir = path.join(directory, '.contexty', 'sessions', session.id);
       await fs.mkdir(sessionDir, { recursive: true });
       const metaPath = path.join(sessionDir, 'meta.json');
-      await fs.writeFile(metaPath, JSON.stringify({ title: session.title }), 'utf-8');
+      const data = JSON.stringify({ title: session.title || '' });
+      await fs.writeFile(metaPath, data, 'utf-8');
     }
-  } catch {
+    console.error(`[Contexty] cached titles for ${sessions.length} sessions`);
+  } catch (e) {
+    console.error('[Contexty] cacheSessionTitles failed:', e);
   }
 }
 
-export function createAASMChatHook(aasm: AASMModule, client: OpencodeClient) {
+export function createAASMChatHook(aasm: AASMModule, client: OpencodeClient, directory: string) {
   return async (
     input: {
       sessionID: string;
@@ -47,7 +56,7 @@ export function createAASMChatHook(aasm: AASMModule, client: OpencodeClient) {
     output: { message: UserMessage; parts: Part[] }
   ) => {
     sessionTracker.setSessionId(input.sessionID);
-    cacheSessionTitles(client);
+    cacheSessionTitles(client, directory);
 
     if (isAASMSubsession(input.sessionID)) {
       return;

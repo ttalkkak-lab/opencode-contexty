@@ -70,7 +70,7 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
       aasm: createAgentTool(aasm),
       acpm: createAcpmTool(acpm),
     },
-    'chat.message': createAASMChatHook(aasm, client),
+    'chat.message': createAASMChatHook(aasm, client, directory),
     'command.execute.before': createTLSCommandHook(tls, pluginInput),
     'experimental.chat.messages.transform': createHSCMMTransformHook(directory, acpm),
     'tool.execute.before': createToolExecuteBeforeHook(acpm, client),
