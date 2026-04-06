@@ -2,6 +2,7 @@ import type { OpencodeClient, UserMessage, Part } from '@opencode-ai/sdk';
 import type { AASMModule } from '../aasm';
 import { isAASMSubsession } from '../aasm/SubsessionHelper';
 import { sessionTracker } from '../core/sessionTracker';
+import { Logger } from '../utils';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -16,15 +17,10 @@ async function cacheSessionTitles(client: OpencodeClient, directory: string): Pr
   lastTitleCacheTime = now;
 
   try {
-    const exp = (client as any).experimental;
-    if (!exp?.session?.list) {
-      console.error('[Contexty] cacheSessionTitles: client.experimental.session.list not available');
-      return;
-    }
-    const result = await exp.session.list();
+    const result = await client.session.list();
     const sessions = result?.data;
     if (!Array.isArray(sessions)) {
-      console.error('[Contexty] cacheSessionTitles: unexpected response', typeof result?.data);
+      Logger.debug('cacheSessionTitles: unexpected response', { type: typeof result?.data });
       return;
     }
 
@@ -38,9 +34,9 @@ async function cacheSessionTitles(client: OpencodeClient, directory: string): Pr
       const data = JSON.stringify({ title: session.title || '' });
       await fs.writeFile(metaPath, data, 'utf-8');
     }
-    console.error(`[Contexty] cached titles for ${sessions.length} sessions`);
+    Logger.debug(`cached titles for ${sessions.length} sessions`);
   } catch (e) {
-    console.error('[Contexty] cacheSessionTitles failed:', e);
+    Logger.debug('cacheSessionTitles failed', { error: e instanceof Error ? e.message : String(e) });
   }
 }
 
