@@ -1,5 +1,9 @@
 import { readToolLog, readToolLogBlacklist, writeToolLog, ToolPart } from './storage';
 import { sessionTracker } from '../core/sessionTracker';
+import { MetricsCollector } from '../metrics/collector';
+import { writeMetrics } from '../metrics/storage';
+import { acpmCounter, buildAcpmMetrics } from '../metrics/acpmCounter';
+import type { ACPMModule } from '../acpm';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -81,8 +85,20 @@ async function filePartToToolPart(filePart: any, directory: string, sessionId: s
   };
 }
 
-export function createHSCMMTransformHook(directory: string) {
+export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule) {
   return async (_input: unknown, output: HookOutput) => {
+    try {
+      const metricsSessionId = sessionTracker.getSessionId();
+      if (metricsSessionId && acpm) {
+        const collector = new MetricsCollector(directory);
+        const snapshot = collector.collect(output.messages, metricsSessionId);
+        const acpmMetrics = buildAcpmMetrics(acpm, acpmCounter);
+        snapshot.acpm = acpmMetrics;
+        await writeMetrics(directory, metricsSessionId, snapshot);
+      }
+    } catch {
+    }
+
     const sessionId = sessionTracker.getSessionId();
     const toolPartsFromMessages: ToolPart[] = [];
 

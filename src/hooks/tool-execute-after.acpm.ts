@@ -2,6 +2,7 @@ import type { ACPMModule } from '../acpm';
 import { getToolCategory } from '../acpm/toolMapping';
 import type { ToolCategory } from '../acpm/types';
 import { sessionTracker } from '../core/sessionTracker';
+import { acpmCounter } from '../metrics/acpmCounter';
 
 type ToolExecuteAfterInput = {
   tool: string;
@@ -82,6 +83,10 @@ export function createToolExecuteAfterHook(acpm: ACPMModule) {
       const category = getToolCategory(input.tool);
 
       if (!getToolPermissionEnabled(acpm, category)) {
+        acpmCounter.recordSanitize();
+        if (category) {
+          acpmCounter.recordDeny(category);
+        }
         sanitizeOutput(output, `Tool "${input.tool}" is disabled by the active permission preset.`);
         return;
       }
@@ -95,6 +100,8 @@ export function createToolExecuteAfterHook(acpm: ACPMModule) {
           const access = evaluator.checkFolderAccess(filePath, 'write');
 
           if (!access.allowed) {
+            acpmCounter.recordSanitize();
+            acpmCounter.recordDeny('file-write');
             sanitizeOutput(output, access.reason ?? `Write denied for ${filePath}`);
             return;
           }
@@ -108,11 +115,15 @@ export function createToolExecuteAfterHook(acpm: ACPMModule) {
           const access = evaluator.checkFolderAccess(filePath, 'read');
 
           if (!access.allowed) {
+            acpmCounter.recordSanitize();
+            acpmCounter.recordDeny('file-read');
             sanitizeOutput(output, access.reason ?? `Read denied for ${filePath}`);
             return;
           }
         }
       }
+
+      acpmCounter.recordAllow();
     } catch {
       sanitizeOutput(output, 'Permission check failed.');
     }

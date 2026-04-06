@@ -3,6 +3,7 @@ import type { ACPMModule } from '../acpm';
 import { getToolCategory } from '../acpm/toolMapping';
 import type { ToolCategory } from '../acpm/types';
 import { sessionTracker } from '../core/sessionTracker';
+import { acpmCounter } from '../metrics/acpmCounter';
 
 type ToolExecuteBeforeInput = {
   tool: string;
@@ -107,6 +108,9 @@ export function createToolExecuteBeforeHook(acpm: ACPMModule, client: OpencodeCl
         '🚫 Tool blocked',
         `${input.tool} is disabled by the active permission preset.`
       );
+      if (category) {
+        acpmCounter.recordDeny(category);
+      }
       throw new ACPMBlockedError(`${input.tool} is disabled by the active permission preset.`);
     }
 
@@ -120,6 +124,7 @@ export function createToolExecuteBeforeHook(acpm: ACPMModule, client: OpencodeCl
 
         if (!access.allowed) {
           await showBlockedToast(client, '🚫 Write blocked', access.reason ?? `Write denied for ${filePath}`);
+          acpmCounter.recordDeny('file-write');
           throw new ACPMBlockedError(access.reason ?? `Write denied for ${filePath}`);
         }
       }
@@ -133,9 +138,12 @@ export function createToolExecuteBeforeHook(acpm: ACPMModule, client: OpencodeCl
 
         if (!access.allowed) {
           await showBlockedToast(client, '🚫 Read blocked', access.reason ?? `Read denied for ${filePath}`);
+          acpmCounter.recordDeny('file-read');
           throw new ACPMBlockedError(access.reason ?? `Read denied for ${filePath}`);
         }
       }
     }
+
+    acpmCounter.recordAllow();
   };
 }
