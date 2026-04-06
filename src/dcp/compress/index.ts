@@ -2,6 +2,7 @@ export * from "./state";
 export * from "./timing";
 export * from "./search";
 export * from "./range-utils";
+export * from "./message";
 export * from "./message-utils";
 export * from "./pipeline";
 export * from "./protected-content";

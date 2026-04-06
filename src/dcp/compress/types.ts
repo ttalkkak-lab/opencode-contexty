@@ -12,6 +12,7 @@ export interface ToolContext {
   state: SessionState;
   config: DCPConfig;
   logger: DCPLogger;
+  messages?: WithParts[];
 }
 
 export interface SearchContext {
