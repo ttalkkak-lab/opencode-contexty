@@ -36,6 +36,22 @@ export class FileSystem {
     await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
   }
 
+  static async writeJSONAtomic(filePath: string, data: unknown): Promise<void> {
+    const dir = path.dirname(filePath);
+    await this.ensureDir(dir);
+    const tmpPath = `${filePath}.${crypto.randomUUID()}.tmp`;
+    try {
+      await fs.writeFile(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
+      await fs.rename(tmpPath, filePath);
+    } catch (error) {
+      try {
+        await fs.unlink(tmpPath);
+      } catch {
+      }
+      throw error;
+    }
+  }
+
   /**
    * Check if file exists
    */
