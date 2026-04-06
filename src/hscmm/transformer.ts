@@ -1,4 +1,11 @@
-import { readToolLog, readToolLogBlacklist, writeToolLog, ToolPart } from './storage';
+import {
+  readToolLog,
+  readToolLogBlacklist,
+  readPruningState,
+  writePruningState,
+  writeToolLog,
+  ToolPart,
+} from './storage';
 import { sessionTracker } from '../core/sessionTracker';
 import { MetricsCollector } from '../metrics/collector';
 import { writeMetrics } from '../metrics/storage';
@@ -7,25 +14,111 @@ import type { ACPMModule } from '../acpm';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Logger } from '../utils';
-
-interface MessageInfo {
-  id: string;
-  role: string;
-}
-
-interface MessagePart {
-  type: string;
-  metadata?: Record<string, any>;
-  [key: string]: any;
-}
-
-interface Message {
-  info: MessageInfo;
-  parts: MessagePart[];
-}
+import { createLogger as createDCPLogger } from '../dcp/logger';
+import { filterProcessableMessages, assignMessageRefs } from '../dcp/message-ids';
+import { injectCompressNudges, injectMessageIds } from '../dcp/messages/inject';
+import { prune } from '../dcp/messages/prune';
+import { syncCompressionBlocks, buildToolIdList } from '../dcp/messages/sync';
+import { stripHallucinations } from '../dcp/messages/utils';
+import type { DCPConfig, SessionState, WithParts } from '../dcp/types';
+import type { ContextyConfig } from '../types';
 
 interface HookOutput {
-  messages: Message[];
+  messages: WithParts[];
+}
+
+type TransformClient = {
+  session?: {
+    list?: () => Promise<{ data?: Array<{ id?: string }> } | Array<{ id?: string }>>;
+  };
+};
+
+function createEmptyPruningState(sessionId: string | null): SessionState {
+  return {
+    sessionId,
+    isSubAgent: false,
+    manualMode: false,
+    compressPermission: undefined,
+    pendingManualTrigger: null,
+    prune: {
+      tools: new Map(),
+      messages: {
+        byMessageId: new Map(),
+        blocksById: new Map(),
+        activeBlockIds: new Set(),
+        activeByAnchorMessageId: new Map(),
+        nextBlockId: 1,
+        nextRunId: 1,
+      },
+    },
+    nudges: {
+      contextLimitAnchors: new Set(),
+      turnNudgeAnchors: new Set(),
+      iterationNudgeAnchors: new Set(),
+    },
+    stats: {
+      pruneTokenCounter: 0,
+      totalPruneTokens: 0,
+    },
+    compressionTiming: {
+      pendingByCallId: new Map(),
+    },
+    toolParameters: new Map(),
+    subAgentResultCache: new Map(),
+    toolIdList: [],
+    messageIds: {
+      byRawId: new Map(),
+      byRef: new Map(),
+      nextRef: 1,
+    },
+    lastCompaction: 0,
+    currentTurn: 0,
+    variant: undefined,
+    modelContextLimit: undefined,
+    systemPromptTokens: undefined,
+  };
+}
+
+function getParts(message: WithParts): any[] {
+  return Array.isArray(message.parts) ? message.parts : [];
+}
+
+async function resolveSessionId(client: TransformClient | undefined, messages: WithParts[]): Promise<string | null> {
+  const messageSessionId = messages.find((message) => typeof message.info.sessionID === 'string' && message.info.sessionID.length > 0)?.info.sessionID;
+  if (typeof messageSessionId === 'string' && messageSessionId.length > 0) {
+    return messageSessionId;
+  }
+
+  const trackedSessionId = sessionTracker.getSessionId();
+  if (trackedSessionId) {
+    return trackedSessionId;
+  }
+
+  try {
+    const sessionsResult = await client?.session?.list?.();
+    const sessions = Array.isArray(sessionsResult) ? sessionsResult : sessionsResult?.data;
+
+    if (Array.isArray(sessions)) {
+      const firstSessionId = sessions.find((session) => typeof session?.id === 'string' && session.id.length > 0)?.id;
+      if (typeof firstSessionId === 'string' && firstSessionId.length > 0) {
+        return firstSessionId;
+      }
+    }
+  } catch {
+  }
+
+  return null;
+}
+
+async function loadDCPConfig(directory: string): Promise<DCPConfig | null> {
+  try {
+    const configPath = path.join(directory, 'contexty.config.json');
+    const raw = await fs.readFile(configPath, 'utf8');
+    const parsed = JSON.parse(raw) as ContextyConfig;
+    return parsed.dcp ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function isValidToolPart(part: any): part is ToolPart {
@@ -86,14 +179,19 @@ async function filePartToToolPart(filePart: any, directory: string, sessionId: s
   };
 }
 
-export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule) {
+export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, client?: TransformClient) {
+  const pruningStateCache = new Map<string, SessionState>();
+
   return async (_input: unknown, output: HookOutput) => {
+    let resolvedSessionId: string | null = null;
+
     try {
       const metricsSessionId = sessionTracker.getSessionId();
       if (metricsSessionId && acpm) {
         const first = output.messages[0];
         if (first) {
-          Logger.debug('metrics debug — first message info keys: ' + Object.keys(first.info).join(', '), { tokens: (first.info as any).tokens, partsCount: first.parts.length, firstPartType: first.parts[0]?.type, firstPartKeys: first.parts[0] ? Object.keys(first.parts[0]).join(',') : undefined });
+          const firstParts = getParts(first);
+          Logger.debug('metrics debug — first message info keys: ' + Object.keys(first.info).join(', '), { tokens: (first.info as any).tokens, partsCount: firstParts.length, firstPartType: firstParts[0]?.type, firstPartKeys: firstParts[0] ? Object.keys(firstParts[0]).join(',') : undefined });
         }
         const last = output.messages[output.messages.length - 1];
         if (last) {
@@ -108,14 +206,51 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule) {
     } catch {
     }
 
-    const sessionId = sessionTracker.getSessionId();
+    const dcpConfig = await loadDCPConfig(directory);
+    if (dcpConfig?.enabled) {
+      const dcpLogger = createDCPLogger(dcpConfig.debug);
+      const processableMessages = filterProcessableMessages(output.messages);
+
+      if (processableMessages.length !== output.messages.length) {
+        dcpLogger.warn('Skipping messages with unexpected shape during transform', {
+          received: output.messages.length,
+          usable: processableMessages.length,
+        });
+        output.messages = processableMessages;
+      }
+
+      resolvedSessionId = await resolveSessionId(client, output.messages);
+      if (resolvedSessionId) {
+        let state = pruningStateCache.get(resolvedSessionId);
+        if (!state) {
+          state = (await readPruningState(directory, resolvedSessionId)) ?? createEmptyPruningState(resolvedSessionId);
+          pruningStateCache.set(resolvedSessionId, state);
+        }
+
+        state.sessionId = resolvedSessionId;
+        stripHallucinations(output.messages);
+        assignMessageRefs(state, output.messages);
+        syncCompressionBlocks(state, output.messages);
+        buildToolIdList(state, output.messages);
+        prune(dcpConfig, state, output.messages, dcpLogger);
+        injectCompressNudges(dcpConfig, state, output.messages);
+        injectMessageIds(state, output.messages);
+
+        try {
+          await writePruningState(directory, resolvedSessionId, state);
+        } catch {
+        }
+      }
+    }
+
+    const sessionId = sessionTracker.getSessionId() ?? resolvedSessionId ?? output.messages[0]?.info.sessionID ?? null;
     const toolPartsFromMessages: ToolPart[] = [];
 
     for (const message of output.messages) {
-      for (const part of message.parts) {
+      for (const part of getParts(message)) {
         if (
           part.type === 'tool' &&
-          part.metadata?.contexty?.source !== 'tool-log'
+          (part as any).metadata?.contexty?.source !== 'tool-log'
         ) {
           if (isValidToolPart(part)) {
             toolPartsFromMessages.push(part);
@@ -124,7 +259,7 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule) {
           }
         } else if (
           part.type === 'file' &&
-          part.metadata?.contexty?.source !== 'tool-log'
+          (part as any).metadata?.contexty?.source !== 'tool-log'
         ) {
           const converted = await filePartToToolPart(part, directory, sessionId ?? '');
           if (converted) {
@@ -135,8 +270,8 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule) {
     }
 
     for (const message of output.messages) {
-      message.parts = message.parts.filter(
-        (part) => part.type !== 'tool' && part.metadata?.contexty?.source !== 'tool-log'
+      message.parts = getParts(message).filter(
+        (part) => part.type !== 'tool' && (part as any).metadata?.contexty?.source !== 'tool-log'
       );
     }
 
@@ -212,7 +347,7 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule) {
     for (const message of output.messages) {
       const parts = partsByMessageID.get(message.info.id);
       if (parts && parts.length > 0) {
-        message.parts = [...message.parts, ...parts];
+        message.parts = [...getParts(message), ...parts];
       }
     }
   };
