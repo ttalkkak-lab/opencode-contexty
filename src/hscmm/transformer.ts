@@ -1,4 +1,5 @@
 import { readToolLog, readToolLogBlacklist, writeToolLog, ToolPart } from './storage';
+import { sessionTracker } from '../core/sessionTracker';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -35,7 +36,7 @@ function isValidToolPart(part: any): part is ToolPart {
   );
 }
 
-async function filePartToToolPart(filePart: any, directory: string): Promise<ToolPart | null> {
+async function filePartToToolPart(filePart: any, directory: string, sessionId: string): Promise<ToolPart | null> {
   const source = filePart.source;
   if (!source || source.type !== 'file' || typeof source.path !== 'string') {
     return null;
@@ -61,7 +62,7 @@ async function filePartToToolPart(filePart: any, directory: string): Promise<Too
 
   return {
     id: filePart.id,
-    sessionID: filePart.sessionID ?? '',
+    sessionID: filePart.sessionID ?? sessionId,
     messageID: filePart.messageID ?? '',
     type: 'tool',
     callID: `file-ref-${filePart.id}`,
@@ -82,6 +83,7 @@ async function filePartToToolPart(filePart: any, directory: string): Promise<Too
 
 export function createHSCMMTransformHook(directory: string) {
   return async (_input: unknown, output: HookOutput) => {
+    const sessionId = sessionTracker.getSessionId();
     const toolPartsFromMessages: ToolPart[] = [];
 
     for (const message of output.messages) {
@@ -99,7 +101,7 @@ export function createHSCMMTransformHook(directory: string) {
           part.type === 'file' &&
           part.metadata?.contexty?.source !== 'tool-log'
         ) {
-          const converted = await filePartToToolPart(part, directory);
+          const converted = await filePartToToolPart(part, directory, sessionId ?? '');
           if (converted) {
             toolPartsFromMessages.push(converted);
           }
@@ -107,9 +109,19 @@ export function createHSCMMTransformHook(directory: string) {
       }
     }
 
+    for (const message of output.messages) {
+      message.parts = message.parts.filter(
+        (part) => part.type !== 'tool' && part.metadata?.contexty?.source !== 'tool-log'
+      );
+    }
+
+    if (!sessionId) {
+      return;
+    }
+
     const [blacklistSpec, persistedSpec] = await Promise.all([
-      readToolLogBlacklist(directory),
-      readToolLog(directory),
+      readToolLogBlacklist(directory, sessionId),
+      readToolLog(directory, sessionId),
     ]);
 
     const blacklistIds = new Set(blacklistSpec.ids);
@@ -124,13 +136,7 @@ export function createHSCMMTransformHook(directory: string) {
     );
 
     if (appendParts.length > 0 || persistedSpec.parts.length !== mergedParts.length) {
-      await writeToolLog(directory, { parts: mergedParts });
-    }
-
-    for (const message of output.messages) {
-      message.parts = message.parts.filter(
-        (part) => part.type !== 'tool' && part.metadata?.contexty?.source !== 'tool-log'
-      );
+      await writeToolLog(directory, sessionId, { parts: mergedParts });
     }
 
     if (mergedParts.length === 0) {

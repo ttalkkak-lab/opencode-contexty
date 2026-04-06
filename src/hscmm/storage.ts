@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { FileSystem } from "../utils";
 
 export type ToolStateCompleted = {
     status: "completed";
@@ -39,20 +40,8 @@ export type ToolLogBlacklist = {
   ids: string[];
 };
 
-const toolLogPath = (baseDir: string): string => {
-  return path.join(baseDir, ".contexty", "tool-parts.json");
-};
-
-const toolLogBlacklistPath = (baseDir: string): string => {
-  return path.join(baseDir, ".contexty", "tool-parts.blacklist.json");
-};
-
-const ensureDir = async (baseDir: string): Promise<void> => {
-  await fs.mkdir(path.join(baseDir, ".contexty"), { recursive: true });
-};
-
-export const readToolLog = async (baseDir: string): Promise<ToolLogSpec> => {
-  const filePath = toolLogPath(baseDir);
+export const readToolLog = async (baseDir: string, sessionId: string): Promise<ToolLogSpec> => {
+  const filePath = sessionPath(baseDir, sessionId, "tool-parts.json");
   try {
     const raw = await fs.readFile(filePath, "utf8");
     const parsed = JSON.parse(raw);
@@ -64,14 +53,14 @@ export const readToolLog = async (baseDir: string): Promise<ToolLogSpec> => {
   }
 };
 
-export const writeToolLog = async (baseDir: string, spec: ToolLogSpec): Promise<void> => {
-  await ensureDir(baseDir);
-  const filePath = toolLogPath(baseDir);
-  await fs.writeFile(filePath, JSON.stringify(spec, null, 2), "utf8");
+export const writeToolLog = async (baseDir: string, sessionId: string, spec: ToolLogSpec): Promise<void> => {
+  await ensureSessionDir(baseDir, sessionId);
+  const filePath = sessionPath(baseDir, sessionId, "tool-parts.json");
+  await FileSystem.writeJSONAtomic(filePath, spec);
 };
 
-export const readToolLogBlacklist = async (baseDir: string): Promise<ToolLogBlacklist> => {
-  const filePath = toolLogBlacklistPath(baseDir);
+export const readToolLogBlacklist = async (baseDir: string, sessionId: string): Promise<ToolLogBlacklist> => {
+  const filePath = sessionPath(baseDir, sessionId, "tool-parts.blacklist.json");
   try {
     const raw = await fs.readFile(filePath, "utf8");
     const parsed = JSON.parse(raw);
@@ -85,15 +74,33 @@ export const readToolLogBlacklist = async (baseDir: string): Promise<ToolLogBlac
 
 export const writeToolLogBlacklist = async (
   baseDir: string,
+  sessionId: string,
   spec: ToolLogBlacklist
 ): Promise<void> => {
-  await ensureDir(baseDir);
-  const filePath = toolLogBlacklistPath(baseDir);
-  await fs.writeFile(filePath, JSON.stringify(spec, null, 2), "utf8");
+  await ensureSessionDir(baseDir, sessionId);
+  const filePath = sessionPath(baseDir, sessionId, "tool-parts.blacklist.json");
+  await FileSystem.writeJSONAtomic(filePath, spec);
 };
 
-export const appendToolLogEntry = async (baseDir: string, entry: ToolPart): Promise<void> => {
-  const spec = await readToolLog(baseDir);
+export const appendToolLogEntry = async (baseDir: string, sessionId: string, entry: ToolPart): Promise<void> => {
+  const spec = await readToolLog(baseDir, sessionId);
   spec.parts.push(entry);
-  await writeToolLog(baseDir, spec);
+  await writeToolLog(baseDir, sessionId, spec);
+};
+
+export const sessionsBaseDir = (baseDir: string): string => {
+  return path.join(baseDir, ".contexty", "sessions");
+};
+
+export const sessionPath = (baseDir: string, sessionId: string, filename: string): string => {
+  if (!sessionId || !sessionId.trim()) {
+    throw new Error("sessionId must be a non-empty string");
+  }
+
+  return path.join(sessionsBaseDir(baseDir), sessionId, filename);
+};
+
+export const ensureSessionDir = async (baseDir: string, sessionId: string): Promise<void> => {
+  const dir = sessionPath(baseDir, sessionId, ".");
+  await fs.mkdir(dir, { recursive: true });
 };
