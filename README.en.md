@@ -239,10 +239,7 @@ Create `contexty.config.json` in your project root:
     "defaultPreset": "default"
   },
   "aasm": {
-    "enabled": true,
-    "mode": "active",
-    "enableLinting": true,
-    "confidenceThreshold": 0.7,
+    "mode": "passive",
     "model": "claude-sonnet-4-20250514"
   },
   "tls": {
@@ -255,11 +252,8 @@ Create `contexty.config.json` in your project root:
 | Option                     | Type                      | Default        | Description                                       |
 | -------------------------- | ------------------------- | -------------- | ------------------------------------------------- |
 | `acpm.defaultPreset`       | string                    | (none)         | Default permission preset name to load on startup |
-| `aasm.enabled`             | boolean                   | `true`         | Enable AASM globally                              |
-| `aasm.mode`                | `"active"` \| `"passive"` | `"active"`     | Supervision mode                                  |
-| `aasm.enableLinting`       | boolean                   | `true`         | Enable LLM-based linting                          |
-| `aasm.confidenceThreshold` | number                    | `0.7`          | Minimum confidence for suggestions                |
-| `aasm.model`               | string                    | (host default) | LLM model for linting                             |
+| `aasm.mode`  | `"active"` \| `"passive"` | `"passive"`    | Supervision mode                  |
+| `aasm.model`  | string                    | (host default) | LLM model for linting             |
 | `tls.enabled`              | boolean                   | `true`         | Enable TLS globally                               |
 | `tls.model`                | string                    | (host default) | LLM model for summarization                       |
 

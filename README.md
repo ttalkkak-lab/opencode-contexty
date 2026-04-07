@@ -208,10 +208,7 @@ Context Explorer 확장은 설치 시 자동으로 설치됩니다.
     "defaultPreset": "default"
   },
   "aasm": {
-    "enabled": true,
-    "mode": "active",
-    "enableLinting": true,
-    "confidenceThreshold": 0.7,
+    "mode": "passive",
     "model": "claude-sonnet-4-20250514"
   },
   "tls": {
@@ -224,10 +221,7 @@ Context Explorer 확장은 설치 시 자동으로 설치됩니다.
 | 옵션 | 타입 | 기본값 | 설명 |
 | --- | --- | --- | --- |
 | `acpm.defaultPreset` | `string` | — | 시작 시 로드할 기본 권한 프리셋 |
-| `aasm.enabled` | `boolean` | `true` | AASM 활성화 여부 |
-| `aasm.mode` | `"active"` \| `"passive"` | `"active"` | 감독 모드 |
-| `aasm.enableLinting` | `boolean` | `true` | LLM 린팅 활성화 여부 |
-| `aasm.confidenceThreshold` | `number` | `0.7` | 제안 최소 신뢰도 |
+| `aasm.mode` | `"active"` \| `"passive"` | `"passive"` | 감독 모드 |
 | `aasm.model` | `string` | 호스트 기본값 | 린팅에 사용할 LLM 모델 |
 | `tls.enabled` | `boolean` | `true` | TLS 활성화 여부 |
 | `tls.model` | `string` | 호스트 기본값 | 요약에 사용할 LLM 모델 |

@@ -36,16 +36,11 @@ Ask the user these questions to determine `contexty.config.json` settings:
    - `windsurf` - Windsurf
    - `none` - Skip IDE extension installation
 
-2. **Do you want to enable AASM (Active Agent-supervised Architecture)?**
-   - If **yes** → `aasm.enabled: true, aasm.mode: "active", aasm.enableLinting: true` (default)
-   - If **no** → `aasm.enabled: false, aasm.mode: "passive", aasm.enableLinting: false`
+2. **What AASM supervision mode do you want?**
+   - `passive` - Monitors without intervention (default, recommended)
+   - `active` - Actively lints and analyzes intent
 
-3. **What confidence threshold for AASM decisions?**
-   - `0.5` - Lenient
-   - `0.7` - Balanced (default, recommended)
-   - `0.9` - Strict
-
-4. **Do you want to use a custom model for AASM?**
+3. **Do you want to use a custom model for AASM?**
    - If **no** → uses OpenCode session model (default)
    - If **yes** → `aasm.model: "<model-identifier>"` (e.g., `google/antigravity-gemini-3-flash`)
 
@@ -68,10 +63,7 @@ Spawn a subagent to handle installation and report back - to save context.
 ```bash
 bunx @ttalkkak-lab/opencode-contexty init --no-tui \
   --ide=<vscode|vscode-insiders|vscodium|cursor|windsurf|none> \
-  --aasm-enabled=<true|false> \
   --aasm-mode=<passive|active> \
-  --enable-linting=<true|false> \
-  --confidence-threshold=<0.0-1.0> \
   --model=<model-identifier>
 ```
 
@@ -82,7 +74,6 @@ bunx @ttalkkak-lab/opencode-contexty init --no-tui \
 - For Windsurf IDE: `bunx @ttalkkak-lab/opencode-contexty init --no-tui --ide=windsurf`
 - Skip IDE extension: `bunx @ttalkkak-lab/opencode-contexty init --no-tui --ide=none`
 - Active mode with custom model: `bunx @ttalkkak-lab/opencode-contexty init --no-tui --aasm-mode=active --model=google/antigravity-gemini-3-flash`
-- Strict threshold: `bunx @ttalkkak-lab/opencode-contexty init --no-tui --confidence-threshold=0.9`
 
 The CLI will:
 
@@ -103,10 +94,7 @@ Expected `contexty.config.json` structure:
 {
   "$schema": "https://unpkg.com/@ttalkkak-lab/opencode-contexty/schema.json",
   "aasm": {
-    "enabled": true,
     "mode": "passive",
-    "enableLinting": true,
-    "confidenceThreshold": 0.7,
     "model": "google/antigravity-gemini-3-flash"
   }
 }
@@ -120,23 +108,17 @@ If the CLI fails or user prefers manual setup, create `contexty.config.json` in 
 {
   "$schema": "https://unpkg.com/@ttalkkak-lab/opencode-contexty/schema.json",
   "aasm": {
-    "enabled": true,
-    "mode": "<passive|active>",
-    "enableLinting": true,
-    "confidenceThreshold": 0.7
+    "mode": "<passive|active>"
   }
 }
 ```
 
 ### Configuration Reference
 
-| Option                     | Type                      | Default     | Description                                                     |
-| -------------------------- | ------------------------- | ----------- | --------------------------------------------------------------- |
-| `aasm.enabled`             | `boolean`                 | `true`      | Enable or disable AASM                                          |
-| `aasm.mode`                | `"passive"` \| `"active"` | `"passive"` | Supervision mode. Active enables linting and intent analysis.   |
-| `aasm.enableLinting`       | `boolean`                 | `true`      | Enable architecture linting to detect anti-patterns             |
-| `aasm.confidenceThreshold` | `number`                  | `0.7`       | Confidence threshold for AASM decisions (0.0-1.0)               |
-| `aasm.model`               | `string`                  | (session)   | Custom model for AASM (optional, uses session model if not set) |
+| Option       | Type                      | Default     | Description                                                     |
+| ------------ | ------------------------- | ----------- | --------------------------------------------------------------- |
+| `aasm.mode`  | `"passive"` \| `"active"` | `"passive"` | Supervision mode. Active enables linting and intent analysis.   |
+| `aasm.model` | `string`                  | (session)   | Custom model for AASM (optional, uses session model if not set) |
 
 ### ⚠️ Warning
 
