@@ -1,8 +1,10 @@
-import { formatMessageIdTag } from "../message-ids";
-import { countTokens } from "../token-utils";
+import { formatMessageIdTag, isIgnoredUserMessage } from "../message-ids";
+import { countTokens, getCurrentParams } from "../token-utils";
 import type { DCPLogger } from "../logger";
 import type { DCPConfig, SessionState, ToolParameterEntry, ToolPart, WithParts } from "../types";
 import { getMessageToolIds } from "./message-utils";
+import { sendCompressNotification, type NotificationEntry } from '../ui/notification';
+import type { ToolContext } from './types';
 
 function getToolParameters(message: WithParts): ToolParameterEntry[] {
   const entries: ToolParameterEntry[] = [];
@@ -62,16 +64,15 @@ export function prepareSession(
   return toolParameters;
 }
 
-export function finalizeSession(
-  state: SessionState,
+export async function finalizeSession(
+  ctx: ToolContext,
   messages: WithParts[],
-  config: DCPConfig,
-  logger: DCPLogger,
-): void {
-  void config;
+  entries: NotificationEntry[],
+  batchTopic: string | undefined,
+): Promise<void> {
 
   for (const message of messages) {
-    const ref = state.messageIds.byRawId.get(message.info.id);
+    const ref = ctx.state.messageIds.byRawId.get(message.info.id);
     if (!ref) {
       continue;
     }
@@ -88,5 +89,23 @@ export function finalizeSession(
     }
   }
 
-  logger.debug("finalized compression session", { messages: messages.length });
+  ctx.logger.debug("finalized compression session", { messages: messages.length });
+
+  const sessionMessageIds = messages
+    .filter((msg) => !isIgnoredUserMessage(msg))
+    .map((msg) => msg.info.id);
+
+  const params = getCurrentParams(ctx.state, messages, ctx.logger);
+
+  await sendCompressNotification(
+    ctx.client,
+    ctx.logger,
+    ctx.config,
+    ctx.state,
+    ctx.sessionId,
+    entries,
+    batchTopic,
+    sessionMessageIds,
+    params,
+  );
 }

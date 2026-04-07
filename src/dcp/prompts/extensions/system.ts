@@ -6,8 +6,8 @@ function formatList(values: string[]): string {
 }
 
 export function buildProtectedToolsExtension(config: DCPConfig): string {
-  const tools = [...new Set([...DEFAULT_PROTECTED_TOOLS, ...config.compress.protectedTools])];
-  const filePatterns = [...new Set(config.protectedFilePatterns)].filter(Boolean);
+  const tools = [...new Set([...DEFAULT_PROTECTED_TOOLS, ...(config.compress.protectedTools ?? [])])];
+  const filePatterns = [...new Set(config.protectedFilePatterns ?? [])].filter(Boolean);
 
   if (tools.length === 0 && filePatterns.length === 0) {
     return '';

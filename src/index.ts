@@ -22,10 +22,19 @@ import { compressRange } from './dcp/compress/range';
 import type { CompressMessageToolArgs, CompressRangeToolArgs } from './dcp/compress/types';
 import type { ToolContext as DCPToolContext } from './dcp/compress/types';
 import type { WithParts } from './dcp/types';
-import { handleDcpCommand } from './dcp/commands';
+import {
+  handleHelpCommand,
+  handleStatsCommand,
+  handleContextCommand,
+  handleCompressCommand,
+  handleDecompressCommand,
+  handleRecompressCommand,
+  handleSweepCommand,
+  handleManualToggleCommand,
+} from './dcp/commands';
 import { handleCompressionEvent } from './dcp/event-handler';
 import { renderSystemPrompt } from './dcp/prompts';
-import type { DCPConfig, SessionState } from './dcp/types';
+import type { SessionState } from './dcp/types';
 import { readPruningState, writePruningState } from './hscmm/storage';
 import { sessionTracker } from './core/sessionTracker';
 
@@ -80,14 +89,11 @@ function getSessionIdFromValue(value: unknown): string | null {
     return null;
   }
 
-  const candidate = (value as { sessionID?: unknown; sessionId?: unknown }).sessionID
-    ?? (value as { sessionID?: unknown; sessionId?: unknown }).sessionId;
+  const candidate =
+    (value as { sessionID?: unknown; sessionId?: unknown }).sessionID ??
+    (value as { sessionID?: unknown; sessionId?: unknown }).sessionId;
 
   return typeof candidate === 'string' && candidate.trim().length > 0 ? candidate : null;
-}
-
-function getDcpSessionIdFromCommand(input: { sessionID: string; arguments: string }): string {
-  return input.sessionID;
 }
 
 function getDcpSessionIdFromEvent(input: { event: unknown }): string | null {
@@ -99,15 +105,15 @@ function getDcpSessionIdFromEvent(input: { event: unknown }): string | null {
   } | null;
 
   return (
-    getSessionIdFromValue(event?.properties)
-    ?? getSessionIdFromValue(event)
-    ?? getSessionIdFromValue(event?.part)
-    ?? null
+    getSessionIdFromValue(event?.properties) ??
+    getSessionIdFromValue(event) ??
+    getSessionIdFromValue(event?.part) ??
+    null
   );
 }
 
 export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
-  const {client, directory} = pluginInput;
+  const { client, directory } = pluginInput;
 
   // Initialize Logger for server-side logging
   Logger.setClient(client);
@@ -120,8 +126,8 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
       confidenceThreshold: 0.7,
     },
     tls: {
-      enabled: true
-    }
+      enabled: true,
+    },
   };
 
   let config = defaultConfig;
@@ -133,11 +139,12 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
       const userConfig = JSON.parse(await fs.readFile(configPath, 'utf-8'));
       config = {
         ...defaultConfig,
-      aasm: { ...defaultConfig.aasm, ...userConfig.aasm },
+        aasm: { ...defaultConfig.aasm, ...userConfig.aasm },
         // Preserve other optional configs if present
         hscmm: userConfig.hscmm,
         acpm: userConfig.acpm,
         tls: userConfig.tls,
+        dcp: userConfig.dcp,
       };
     } catch {
       // Config file doesn't exist or is not accessible, ignore
@@ -152,7 +159,10 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
 
   const aasm = new AASMModule(config, client, configPath);
   const tls = new TLSModule(pluginInput, config, configPath);
-  const acpm = new ACPMModule(directory, (config as { acpm?: { defaultPreset?: string } }).acpm?.defaultPreset);
+  const acpm = new ACPMModule(
+    directory,
+    (config as { acpm?: { defaultPreset?: string } }).acpm?.defaultPreset
+  );
   const dcpConfig = config.dcp;
   const dcpEnabled = Boolean(dcpConfig?.enabled);
   const dcpStateCache = dcpEnabled ? new Map<string, SessionState>() : null;
@@ -170,6 +180,11 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
     }
 
     state.sessionId = sessionId;
+    // dcpLogger?.debug('getDcpState', {
+    //   sessionId,
+    //   cacheHit: dcpStateCache.has(sessionId),
+    //   blocksInState: state.prune.messages.blocksById.size,
+    // });
     return state;
   }
 
@@ -193,36 +208,41 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
       return null;
     }
 
-    const rangeArgs = tool.schema.object({
-      topic: tool.schema.string(),
-      content: tool.schema.array(
-        tool.schema.object({
-          startId: tool.schema.string(),
-          endId: tool.schema.string(),
-          summary: tool.schema.string(),
-        })
-      ),
-    });
+    const rangeArgs = {
+      topic: tool.schema.string().describe('Short label (3-5 words) for display'),
+      content: tool.schema
+        .array(
+          tool.schema.object({
+            startId: tool.schema.string().describe('Message or block ID at beginning of range'),
+            endId: tool.schema.string().describe('Message or block ID at end of range'),
+            summary: tool.schema
+              .string()
+              .describe('Complete technical summary replacing content in range'),
+          })
+        )
+        .describe('One or more ranges to compress'),
+    };
 
-    const messageArgs = tool.schema.object({
-      topic: tool.schema.string(),
-      content: tool.schema.array(
-        tool.schema.object({
-          messageId: tool.schema.string(),
-          topic: tool.schema.string(),
-          summary: tool.schema.string(),
-        })
-      ),
-    });
+    const messageArgs = {
+      topic: tool.schema.string().describe('Short label (3-5 words) for display'),
+      content: tool.schema
+        .array(
+          tool.schema.object({
+            messageId: tool.schema.string().describe('Raw message ID of the form mNNNN'),
+            topic: tool.schema.string().describe('Short topic for this message'),
+            summary: tool.schema
+              .string()
+              .describe('Complete technical summary replacing message content'),
+          })
+        )
+        .describe('One or more messages to compress'),
+    };
 
     return tool({
       description: 'DCP compress conversation context into reusable blocks.',
-      args: dcpConfig.compress.mode === 'message' ? messageArgs : rangeArgs as any,
+      args: dcpConfig.compress.mode === 'message' ? messageArgs : rangeArgs,
       async execute(args, context) {
-        const sessionId =
-          getSessionIdFromValue(context)
-          ?? getDcpSessionIdFromCommand({ sessionID: sessionTracker.getSessionId() ?? '', arguments: '' })
-          ?? sessionTracker.getSessionId();
+        const sessionId = sessionTracker.getSessionId() ?? getSessionIdFromValue(context);
 
         if (!sessionId) {
           throw new Error('DCP compress requires an active session.');
@@ -236,9 +256,7 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
           state,
           config: dcpConfig,
           logger: createDCPLogger(dcpConfig.debug),
-          messages: Array.isArray(ctx.messages)
-            ? (ctx.messages as WithParts[])
-            : undefined,
+          messages: Array.isArray(ctx.messages) ? (ctx.messages as WithParts[]) : undefined,
         };
 
         const callId =
@@ -248,9 +266,10 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
               ? (ctx.callId as string)
               : `dcp-${Date.now()}`;
 
-        const result = dcpConfig.compress.mode === 'message'
-          ? await compressMessage(toolContext, args as unknown as CompressMessageToolArgs, callId)
-          : await compressRange(toolContext, args as unknown as CompressRangeToolArgs, callId);
+        const result =
+          dcpConfig.compress.mode === 'message'
+            ? await compressMessage(toolContext, args as unknown as CompressMessageToolArgs, callId)
+            : await compressRange(toolContext, args as unknown as CompressRangeToolArgs, callId);
 
         await persistDcpState(sessionId, state);
         return result;
@@ -283,25 +302,88 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
 
       sessionTracker.setSessionId(input.sessionID);
 
-      const sessionId = getDcpSessionIdFromCommand(input);
-      const state = await getDcpState(sessionId);
-      const rawArgs = typeof input.arguments === 'string' ? input.arguments.trim() : '';
-      const args = rawArgs.length > 0 ? rawArgs.split(/\s+/).filter(Boolean) : [];
-      const message = handleDcpCommand(args, state, dcpConfig, dcpLogger ?? createDCPLogger(dcpConfig.debug));
+      let messages: any[] = [];
+      try {
+        const messagesResponse = await client.session.messages({
+          path: { id: input.sessionID },
+        });
+        messages = Array.isArray(messagesResponse) ? messagesResponse : messagesResponse.data || [];
+      } catch {}
 
-      await persistDcpState(sessionId, state);
+      const args = (input.arguments || '').trim().split(/\s+/).filter(Boolean);
+      const subcommand = args[0]?.toLowerCase() || '';
+      const subArgs = args.slice(1);
 
-      output.parts.length = 0;
-      output.parts.push({
-        type: 'text',
-        text: message,
-        synthetic: true,
-        sessionID: input.sessionID,
-        messageID: 'dcp-message',
-        id: 'dcp-part',
-      });
+      const commandCtx = {
+        client,
+        state: await getDcpState(input.sessionID),
+        config: dcpConfig,
+        logger: dcpLogger ?? createDCPLogger(dcpConfig.debug),
+        sessionId: input.sessionID,
+        messages,
+      };
+
+      if (subcommand === 'context') {
+        await handleContextCommand(commandCtx);
+        throw new Error('__DCP_CONTEXT_HANDLED__');
+      }
+
+      if (subcommand === 'stats') {
+        await handleStatsCommand(commandCtx);
+        throw new Error('__DCP_STATS_HANDLED__');
+      }
+
+      if (subcommand === 'sweep') {
+        await handleSweepCommand({ ...commandCtx, args: subArgs, workingDirectory: directory });
+        throw new Error('__DCP_SWEEP_HANDLED__');
+      }
+
+      if (subcommand === 'manual') {
+        await handleManualToggleCommand(commandCtx, subArgs[0]?.toLowerCase());
+        throw new Error('__DCP_MANUAL_HANDLED__');
+      }
+
+      if (subcommand === 'compress') {
+        const userFocus = subArgs.join(' ').trim();
+        const prompt = await handleCompressCommand(commandCtx, userFocus);
+        if (!prompt) {
+          throw new Error('__DCP_MANUAL_TRIGGER_BLOCKED__');
+        }
+        const rawArgs = (input.arguments || '').trim();
+        output.parts.length = 0;
+        output.parts.push({
+          type: 'text',
+          text: rawArgs ? `/dcp ${rawArgs}` : `/dcp ${subcommand}`,
+          synthetic: true,
+          sessionID: input.sessionID,
+          messageID: 'dcp-message',
+          id: 'dcp-part',
+        });
+        await persistDcpState(input.sessionID, commandCtx.state);
+        return;
+      }
+
+      if (subcommand === 'decompress') {
+        await handleDecompressCommand({ ...commandCtx, args: subArgs });
+        await persistDcpState(input.sessionID, commandCtx.state);
+        throw new Error('__DCP_DECOMPRESS_HANDLED__');
+      }
+
+      if (subcommand === 'recompress') {
+        await handleRecompressCommand({ ...commandCtx, args: subArgs });
+        await persistDcpState(input.sessionID, commandCtx.state);
+        throw new Error('__DCP_RECOMPRESS_HANDLED__');
+      }
+
+      await handleHelpCommand(commandCtx);
+      throw new Error('__DCP_HELP_HANDLED__');
     },
-    'experimental.chat.messages.transform': createHSCMMTransformHook(directory, acpm),
+    'experimental.chat.messages.transform': createHSCMMTransformHook(
+      directory,
+      acpm,
+      undefined,
+      dcpEnabled ? { get: getDcpState, persist: persistDcpState } : undefined
+    ),
     'tool.execute.before': createToolExecuteBeforeHook(acpm, client),
     'tool.execute.after': createToolExecuteAfterHook(acpm),
     'permission.ask': createPermissionAskHook(acpm),
@@ -325,6 +407,14 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
               opencodeConfig.permission?.compress === false
             ) {
               dcpLogger?.info('Compress permission is disabled by Opencode config.');
+            }
+
+            if (dcpConfig.commands.enabled && dcpConfig.compress.permission !== 'deny') {
+              opencodeConfig.command ??= {};
+              opencodeConfig.command['dcp'] = {
+                template: '',
+                description: 'Show available DCP commands',
+              };
             }
 
             if (dcpConfig.compress.permission !== 'deny') {

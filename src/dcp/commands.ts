@@ -102,7 +102,7 @@ function formatStatsMessage(
   totalPruneTokens: number,
   activeBlocks: number,
   summaryTokens: number,
-  prunedToolCount: number,
+  prunedToolCount: number
 ): string {
   const lines: string[] = [];
   lines.push('╭───────────────────────────────────────────────────────────╮');
@@ -124,7 +124,12 @@ export async function handleStatsCommand(ctx: CommandContext): Promise<void> {
   const summaryTokens = getActiveSummaryTokenUsage(state);
   const prunedToolCount = state.prune.tools.size;
 
-  const message = formatStatsMessage(totalPruneTokens, activeBlocks, summaryTokens, prunedToolCount);
+  const message = formatStatsMessage(
+    totalPruneTokens,
+    activeBlocks,
+    summaryTokens,
+    prunedToolCount
+  );
   const params = getCurrentParams(state, messages, logger);
   await sendIgnoredMessage(client, sessionId, message, params, logger);
   logger.info('Stats command executed', { totalPruneTokens, activeBlocks, summaryTokens });
@@ -137,7 +142,7 @@ export async function handleStatsCommand(ctx: CommandContext): Promise<void> {
 function formatContextMessage(
   totalMessages: number,
   compactedCount: number,
-  activeBlocks: number,
+  activeBlocks: number
 ): string {
   const lines: string[] = [];
   lines.push('╭───────────────────────────────────────────────────────────╮');
@@ -155,7 +160,7 @@ export async function handleContextCommand(ctx: CommandContext): Promise<void> {
   const { client, state, logger, sessionId, messages } = ctx;
   const totalMessages = state.prune.messages.byMessageId.size;
   const compactedCount = Array.from(state.prune.messages.byMessageId.values()).filter(
-    (entry) => entry.activeBlockIds.length > 0,
+    (entry) => entry.activeBlockIds.length > 0
   ).length;
   const activeBlocks = state.prune.messages.activeBlockIds.size;
 
@@ -179,7 +184,7 @@ const COMPRESS_TRIGGER_PROMPT = [
 
 export async function handleCompressCommand(
   ctx: CommandContext,
-  userFocus?: string,
+  userFocus?: string
 ): Promise<string | null> {
   const { state } = ctx;
   const sections = [COMPRESS_TRIGGER_PROMPT];
@@ -216,7 +221,13 @@ export async function handleDecompressCommand(ctx: BlockCommandContext): Promise
   const targetArg = args[0];
 
   if (args.length > 1) {
-    await sendIgnoredMessage(client, sessionId, 'Invalid arguments. Usage: /dcp decompress <n>', params, logger);
+    await sendIgnoredMessage(
+      client,
+      sessionId,
+      'Invalid arguments. Usage: /dcp decompress <n>',
+      params,
+      logger
+    );
     return;
   }
 
@@ -229,13 +240,39 @@ export async function handleDecompressCommand(ctx: BlockCommandContext): Promise
 
   const targetBlockId = parseBlockIdArg(targetArg);
   if (targetBlockId === null) {
-    await sendIgnoredMessage(client, sessionId, 'Please enter a compression number. Example: /dcp decompress 2', params, logger);
+    await sendIgnoredMessage(
+      client,
+      sessionId,
+      'Please enter a compression number. Example: /dcp decompress 2',
+      params,
+      logger
+    );
     return;
   }
 
+  logger.info('decompress called', {
+    sessionId,
+    targetBlockId,
+    blocksByIdSize: state.prune.messages.blocksById.size,
+    blocksByIdKeys: Array.from(state.prune.messages.blocksById.keys()),
+    activeBlockIds: Array.from(state.prune.messages.activeBlockIds),
+  });
+  const block = state.prune.messages.blocksById.get(targetBlockId);
+  logger.info('resolveCompressionTarget lookup', {
+    found: !!block,
+    mode: block?.mode,
+    active: block?.active,
+    runId: block?.runId,
+  });
   const target = resolveCompressionTarget(state.prune.messages, targetBlockId);
   if (!target) {
-    await sendIgnoredMessage(client, sessionId, `Compression ${targetBlockId} does not exist.`, params, logger);
+    await sendIgnoredMessage(
+      client,
+      sessionId,
+      `Compression ${targetBlockId} does not exist. ${{ sessionId, targetBlockId, blocksByIdSize: state.prune.messages.blocksById.size, blocksByIdKeys: Array.from(state.prune.messages.blocksById.keys()), activeBlockIds: Array.from(state.prune.messages.activeBlockIds) }}`,
+      params,
+      logger
+    );
     return;
   }
 
@@ -245,9 +282,11 @@ export async function handleDecompressCommand(ctx: BlockCommandContext): Promise
 
   const tokensSaved = target.compressedTokens;
   await sendIgnoredMessage(
-    client, sessionId,
+    client,
+    sessionId,
     `Restored compression ${target.displayId} (${target.topic}). ~${formatTokenCount(tokensSaved)} tokens restored.`,
-    params, logger
+    params,
+    logger
   );
   logger.info('Decompress command completed', { targetBlockId: target.displayId });
 }
@@ -262,14 +301,23 @@ export async function handleRecompressCommand(ctx: BlockCommandContext): Promise
   const targetArg = args[0];
 
   if (args.length > 1) {
-    await sendIgnoredMessage(client, sessionId, 'Invalid arguments. Usage: /dcp recompress <n>', params, logger);
+    await sendIgnoredMessage(
+      client,
+      sessionId,
+      'Invalid arguments. Usage: /dcp recompress <n>',
+      params,
+      logger
+    );
     return;
   }
 
   const availableMessageIds = new Set(messages.map((msg) => msg.info.id));
 
   if (!targetArg) {
-    const availableTargets = getRecompressibleCompressionTargets(state.prune.messages, availableMessageIds);
+    const availableTargets = getRecompressibleCompressionTargets(
+      state.prune.messages,
+      availableMessageIds
+    );
     const message = formatAvailableBlocksMessage(availableTargets, 'recompress');
     await sendIgnoredMessage(client, sessionId, message, params, logger);
     return;
@@ -277,13 +325,37 @@ export async function handleRecompressCommand(ctx: BlockCommandContext): Promise
 
   const targetBlockId = parseBlockIdArg(targetArg);
   if (targetBlockId === null) {
-    await sendIgnoredMessage(client, sessionId, 'Please enter a compression number. Example: /dcp recompress 2', params, logger);
+    await sendIgnoredMessage(
+      client,
+      sessionId,
+      'Please enter a compression number. Example: /dcp recompress 2',
+      params,
+      logger
+    );
     return;
   }
 
   const target = resolveCompressionTarget(state.prune.messages, targetBlockId);
   if (!target) {
-    await sendIgnoredMessage(client, sessionId, `Compression ${targetBlockId} does not exist.`, params, logger);
+    logger.info('resolveCompressionTarget failed to find target for recompress', {
+      targetBlockId,
+      blocksByIdSize: state.prune.messages.blocksById.size,
+      blocksByIdKeys: Array.from(state.prune.messages.blocksById.keys()),
+      activeBlockIds: Array.from(state.prune.messages.activeBlockIds),
+    });
+    console.error('resolveCompressionTarget failed to find target for recompress', {
+      targetBlockId,
+      blocksByIdSize: state.prune.messages.blocksById.size,
+      blocksByIdKeys: Array.from(state.prune.messages.blocksById.keys()),
+      activeBlockIds: Array.from(state.prune.messages.activeBlockIds),
+    });
+    await sendIgnoredMessage(
+      client,
+      sessionId,
+      `Compression ${targetBlockId} does not exist. ${{ sessionId, targetBlockId, blocksByIdSize: state.prune.messages.blocksById.size, blocksByIdKeys: Array.from(state.prune.messages.blocksById.keys()), activeBlockIds: Array.from(state.prune.messages.activeBlockIds) }}`,
+      params,
+      logger
+    );
     return;
   }
 
@@ -321,9 +393,11 @@ export async function handleRecompressCommand(ctx: BlockCommandContext): Promise
 
   const tokensRepruned = target.compressedTokens;
   await sendIgnoredMessage(
-    client, sessionId,
+    client,
+    sessionId,
     `Re-applied compression ${target.displayId} (${target.topic}). ~${formatTokenCount(tokensRepruned)} tokens re-pruned.`,
-    params, logger
+    params,
+    logger
   );
   logger.info('Recompress command completed', { targetBlockId: target.displayId });
 }
@@ -342,7 +416,11 @@ function findLastUserMessageIndex(messages: WithParts[]): number {
   return -1;
 }
 
-function collectToolIdsAfterIndex(state: SessionState, messages: WithParts[], afterIndex: number): string[] {
+function collectToolIdsAfterIndex(
+  state: SessionState,
+  messages: WithParts[],
+  afterIndex: number
+): string[] {
   const toolIds: string[] = [];
   for (let i = afterIndex + 1; i < messages.length; i++) {
     const msg = messages[i];
@@ -366,7 +444,7 @@ function formatSweepMessage(
   toolIds: string[],
   toolMetadata: Map<string, { tool: string }>,
   workingDirectory?: string,
-  skippedProtected?: number,
+  skippedProtected?: number
 ): string {
   const lines: string[] = [];
   lines.push('╭───────────────────────────────────────────────────────────╮');
@@ -375,7 +453,11 @@ function formatSweepMessage(
   lines.push('');
 
   if (toolCount === 0) {
-    lines.push(mode === 'since-user' ? 'No tools found since the previous user message.' : 'No tools found to sweep.');
+    lines.push(
+      mode === 'since-user'
+        ? 'No tools found since the previous user message.'
+        : 'No tools found to sweep.'
+    );
     if (skippedProtected && skippedProtected > 0) {
       lines.push(`(${skippedProtected} protected tool(s) skipped)`);
     }
@@ -383,7 +465,7 @@ function formatSweepMessage(
     lines.push(
       mode === 'since-user'
         ? `Swept ${toolCount} tool(s) since the previous user message.`
-        : `Swept the last ${toolCount} tool(s).`,
+        : `Swept the last ${toolCount} tool(s).`
     );
     lines.push(`Tokens saved: ~${tokensSaved.toLocaleString()}`);
     if (skippedProtected && skippedProtected > 0) {
@@ -467,7 +549,15 @@ export async function handleSweepCommand(ctx: SweepContext): Promise<void> {
     if (entry) toolMetadata.set(id, entry);
   }
 
-  const message = formatSweepMessage(newToolIds.length, tokensSaved, mode, newToolIds, toolMetadata, workingDirectory, skippedProtected);
+  const message = formatSweepMessage(
+    newToolIds.length,
+    tokensSaved,
+    mode,
+    newToolIds,
+    toolMetadata,
+    workingDirectory,
+    skippedProtected
+  );
   await sendIgnoredMessage(client, sessionId, message, params, logger);
   logger.info('Sweep command completed', { toolsSwept: newToolIds.length, tokensSaved });
 }
@@ -476,10 +566,14 @@ export async function handleSweepCommand(ctx: SweepContext): Promise<void> {
 // Manual toggle
 // ---------------------------------------------------------------------------
 
-const MANUAL_MODE_ON = 'Manual mode is now ON. Use /dcp compress to trigger context tools manually.';
+const MANUAL_MODE_ON =
+  'Manual mode is now ON. Use /dcp compress to trigger context tools manually.';
 const MANUAL_MODE_OFF = 'Manual mode is now OFF.';
 
-export async function handleManualToggleCommand(ctx: CommandContext, modeArg?: string): Promise<void> {
+export async function handleManualToggleCommand(
+  ctx: CommandContext,
+  modeArg?: string
+): Promise<void> {
   const { client, state, logger, sessionId, messages } = ctx;
 
   if (modeArg === 'on') {
@@ -491,7 +585,13 @@ export async function handleManualToggleCommand(ctx: CommandContext, modeArg?: s
   }
 
   const params = getCurrentParams(state, messages, logger);
-  await sendIgnoredMessage(client, sessionId, state.manualMode ? MANUAL_MODE_ON : MANUAL_MODE_OFF, params, logger);
+  await sendIgnoredMessage(
+    client,
+    sessionId,
+    state.manualMode ? MANUAL_MODE_ON : MANUAL_MODE_OFF,
+    params,
+    logger
+  );
   logger.info('Manual mode toggled', { manualMode: state.manualMode });
 }
 
@@ -502,7 +602,7 @@ export async function handleManualToggleCommand(ctx: CommandContext, modeArg?: s
 export function applyPendingManualTrigger(
   state: SessionState,
   messages: WithParts[],
-  logger: DCPLogger,
+  logger: DCPLogger
 ): void {
   const pending = state.pendingManualTrigger;
   if (!pending) return;

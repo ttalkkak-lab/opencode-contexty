@@ -8,7 +8,7 @@ type ToolExecuteAfterInput = {
   tool: string;
   sessionID: string;
   callID: string;
-  args: any;
+  args?: any;
 };
 
 type ToolExecuteAfterOutput = {

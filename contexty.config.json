@@ -6,5 +6,48 @@
     "enableLinting": true,
     "confidenceThreshold": 0.7,
     "model": "google/antigravity-gemini-3-flash"
+  },
+  "dcp": {
+    "enabled": true,
+    "debug": true,
+    "pruneNotification": "detailed",
+    "pruneNotificationType": "chat",
+    "commands": {
+      "enabled": true,
+      "protectedTools": []
+    },
+    "manualMode": {
+      "enabled": false,
+      "automaticStrategies": []
+    },
+    "turnProtection": {
+      "enabled": true,
+      "turns": 3
+    },
+    "experimental": {
+      "allowSubAgents": false,
+      "customPrompts": false
+    },
+    "protectedFilePatterns": [],
+    "compress": {
+      "mode": "range",
+      "permission": "allow",
+      "showCompression": true,
+      "summaryBuffer": 3,
+      "maxContextLimit": 180000,
+      "minContextLimit": 50000,
+      "nudgeFrequency": 3
+    },
+    "strategies": {
+      "deduplication": {
+        "enabled": true,
+        "protectedTools": []
+      },
+      "purgeErrors": {
+        "enabled": true,
+        "turns": 4,
+        "protectedTools": []
+      }
+    }
   }
 }

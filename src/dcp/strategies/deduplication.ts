@@ -8,7 +8,7 @@ export function deduplicate(config: DCPConfig, state: SessionState, toolParams: 
     return;
   }
 
-  const protectedTools = [...DEFAULT_PROTECTED_TOOLS, ...config.strategies.deduplication.protectedTools];
+  const protectedTools = [...DEFAULT_PROTECTED_TOOLS, ...(config.strategies.deduplication.protectedTools ?? [])];
   const grouped = new Map<string, ToolParameterEntryWithCallId[]>();
 
   for (const entry of toolParams as ToolParameterEntryWithCallId[]) {

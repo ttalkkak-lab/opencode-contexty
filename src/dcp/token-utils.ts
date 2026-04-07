@@ -1,5 +1,7 @@
 import * as _anthropicTokenizer from '@anthropic-ai/tokenizer';
 
+import { getLastUserMessage } from './message-ids';
+import { DCPLogger } from './logger';
 import type { SessionState, WithParts } from './types';
 
 const anthropicCountTokens = (
@@ -96,4 +98,33 @@ export function countAllMessageTokens(msg: WithParts): number {
   }
   if (texts.length === 0) return 0;
   return estimateTokensBatch(texts);
+}
+
+export function getCurrentParams(
+  state: SessionState,
+  messages: WithParts[],
+  logger: DCPLogger,
+): {
+  providerId: string | undefined;
+  modelId: string | undefined;
+  agent: string | undefined;
+  variant: string | undefined;
+} {
+  const userMsg = getLastUserMessage(messages);
+  if (!userMsg) {
+    logger.debug('No user message found when determining current params');
+    return {
+      providerId: undefined,
+      modelId: undefined,
+      agent: undefined,
+      variant: state.variant,
+    };
+  }
+  const userInfo = userMsg.info as any;
+  const agent: string = userInfo.agent;
+  const providerId: string | undefined = userInfo.model?.providerID;
+  const modelId: string | undefined = userInfo.model?.modelID;
+  const variant: string | undefined = state.variant ?? userInfo.variant;
+
+  return { providerId, modelId, agent, variant };
 }

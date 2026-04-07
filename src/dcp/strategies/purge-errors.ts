@@ -8,7 +8,7 @@ export function purgeErrors(config: DCPConfig, state: SessionState, toolParams: 
     return;
   }
 
-  const protectedTools = [...DEFAULT_PROTECTED_TOOLS, ...config.strategies.purgeErrors.protectedTools];
+  const protectedTools = [...DEFAULT_PROTECTED_TOOLS, ...(config.strategies.purgeErrors.protectedTools ?? [])];
 
   for (const entry of toolParams as ToolParameterEntryWithCallId[]) {
     if (entry.status !== 'error') {

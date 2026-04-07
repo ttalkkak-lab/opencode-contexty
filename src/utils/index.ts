@@ -47,7 +47,11 @@ export class FileSystem {
       await fs.writeFile(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
       await fs.rename(tmpPath, filePath);
     } catch (e) {
-      try { await fs.unlink(tmpPath); } catch { /* ignore cleanup failure */ }
+      try {
+        await fs.unlink(tmpPath);
+      } catch {
+        /* ignore cleanup failure */
+      }
       throw e;
     }
   }
@@ -163,6 +167,11 @@ export class Logger {
     message: string,
     extra?: Record<string, unknown>
   ) {
+    fs.appendFile(
+      'contexty.log',
+      `[${new Date().toISOString()}] [${level.toUpperCase()}] ${message} ${extra ? JSON.stringify(extra) : ''}\n`,
+      'utf-8'
+    );
     if (this.client) {
       this.client.app
         .log({
@@ -174,32 +183,33 @@ export class Logger {
           },
         })
         .catch(() => {});
+    } else {
     }
   }
 
   static info(message: string, extra?: Record<string, unknown>): void {
-    console.log(`${this.colors.cyan}[INFO]${this.colors.reset} ${message}`);
+    // console.log(`${this.colors.cyan}[INFO]${this.colors.reset} ${message}`);
     this.logToServer('info', message, extra);
   }
 
   static success(message: string, extra?: Record<string, unknown>): void {
-    console.log(`${this.colors.green}[SUCCESS]${this.colors.reset} ${message}`);
+    // console.log(`${this.colors.green}[SUCCESS]${this.colors.reset} ${message}`);
     this.logToServer('info', `[SUCCESS] ${message}`, extra);
   }
 
   static warn(message: string, extra?: Record<string, unknown>): void {
-    console.log(`${this.colors.yellow}[WARN]${this.colors.reset} ${message}`);
+    // console.log(`${this.colors.yellow}[WARN]${this.colors.reset} ${message}`);
     this.logToServer('warn', message, extra);
   }
 
   static error(message: string, extra?: Record<string, unknown>): void {
-    console.error(`${this.colors.red}[ERROR]${this.colors.reset} ${message}`);
+    // console.error(`${this.colors.red}[ERROR]${this.colors.reset} ${message}`);
     this.logToServer('error', message, extra);
   }
 
   static debug(message: string, extra?: Record<string, unknown>): void {
     if (process.env.DEBUG) {
-      console.log(`${this.colors.magenta}[DEBUG]${this.colors.reset} ${message}`);
+      // console.log(`${this.colors.magenta}[DEBUG]${this.colors.reset} ${message}`);
     }
     // Always send debug logs to server if client is available, useful for troubleshooting
     this.logToServer('debug', message, extra);
@@ -230,11 +240,11 @@ export class DateUtils {
 }
 
 export function generateCustomId(prefix: string): string {
-	const timestampHex = Date.now().toString(16).padStart(12, '0');
-	const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-	let randomPart = '';
-	for (let i = 0; i < 14; i++) {
-		randomPart += alphabet[crypto.randomInt(0, alphabet.length)];
-	}
-	return `${prefix}_${timestampHex}${randomPart}`;
+  const timestampHex = Date.now().toString(16).padStart(12, '0');
+  const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let randomPart = '';
+  for (let i = 0; i < 14; i++) {
+    randomPart += alphabet[crypto.randomInt(0, alphabet.length)];
+  }
+  return `${prefix}_${timestampHex}${randomPart}`;
 }
