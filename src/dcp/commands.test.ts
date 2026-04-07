@@ -13,6 +13,7 @@ import {
   type BlockCommandContext,
   type SweepContext,
 } from "./commands";
+import { applyCompressionState } from "./compress/state";
 import { syncCompressionBlocks } from "./messages/sync";
 import type { DCPConfig, SessionState } from "./types";
 import type { DCPLogger } from "./logger";
@@ -267,6 +268,52 @@ describe("DCP Commands", () => {
     expect(state.prune.messages.blocksById.get(1)?.active).toBe(true);
     expect(state.prune.messages.activeBlockIds.has(1)).toBe(true);
     expect(state.prune.messages.activeByAnchorMessageId.get("msg-1")).toBe(1);
+    expect(state.prune.messages.byMessageId.get("msg-1")?.activeBlockIds).toContain(1);
+  });
+
+  test("decompress → recompress round-trip", async () => {
+    const state = makeState();
+    state.messageIds.byRawId.set("raw-1", "m0001");
+    state.messageIds.byRawId.set("raw-2", "m0002");
+    state.prune.messages.byMessageId.set("raw-1", {
+      tokenCount: 0,
+      allBlockIds: [],
+      activeBlockIds: [],
+    });
+    state.prune.messages.byMessageId.set("raw-2", {
+      tokenCount: 0,
+      allBlockIds: [],
+      activeBlockIds: [],
+    });
+
+    const blockId = applyCompressionState(state, {
+      mode: "range",
+      startId: "m0001",
+      endId: "m0002",
+      summary: "summary",
+      topic: "topic",
+      anchorMessageId: "msg-1",
+      compressMessageId: "msg-2",
+      consumedBlockIds: [],
+    });
+    const ctx: BlockCommandContext = { ...makeCtx(state), args: [String(blockId)] };
+
+    expect(state.prune.messages.blocksById.get(blockId)?.active).toBe(true);
+    expect(state.prune.messages.activeBlockIds.has(blockId)).toBe(true);
+
+    await handleDecompressCommand(ctx);
+
+    expect(state.prune.messages.blocksById.get(blockId)?.active).toBe(false);
+    expect(state.prune.messages.blocksById.get(blockId)?.deactivatedByUser).toBe(true);
+    expect(state.prune.messages.activeBlockIds.has(blockId)).toBe(false);
+
+    await handleRecompressCommand(ctx);
+
+    expect(state.prune.messages.blocksById.get(blockId)?.active).toBe(true);
+    expect(state.prune.messages.activeBlockIds.has(blockId)).toBe(true);
+    expect(state.prune.messages.activeByAnchorMessageId.get("msg-1")).toBe(blockId);
+    expect(state.prune.messages.byMessageId.get("raw-1")?.activeBlockIds).toContain(blockId);
+    expect(state.prune.messages.byMessageId.get("raw-2")?.activeBlockIds).toContain(blockId);
   });
 
   test("recompress refuses non-user-decompressed block", async () => {
