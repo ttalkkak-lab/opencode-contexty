@@ -10,6 +10,7 @@ import {
 import { FileSystem, Logger } from '../utils';
 import { SubsessionHelper } from './SubsessionHelper';
 import { LLMLinter } from './LLMLinter';
+import { buildReviewPrompt } from './prompts';
 
 export class IntentAnalyzer {
   analyzeIntent(userPrompt: string): IntentAnalysis {
@@ -86,6 +87,7 @@ export class IntentAnalyzer {
 export class AASMModule {
   private analyzer: IntentAnalyzer;
   private llmLinter: LLMLinter | null = null;
+  private subsessionHelper: SubsessionHelper | null = null;
   private mode: AgentMode;
   private config: ContextyConfig['aasm'];
   private client: OpencodeClient | null = null;
@@ -102,9 +104,6 @@ export class AASMModule {
     }
   }
 
-  /**
-   * Set the OpenCode client for LLM-based linting.
-   */
   setClient(client: OpencodeClient): void {
     this.client = client;
 
@@ -114,6 +113,7 @@ export class AASMModule {
     }
 
     const subsessionHelper = new SubsessionHelper(client, subsessionConfig);
+    this.subsessionHelper = subsessionHelper;
     this.llmLinter = new LLMLinter(subsessionHelper);
   }
 
@@ -201,23 +201,24 @@ export class AASMModule {
     this.mode = mode;
     Logger.info(`AASM mode set to: ${mode}`);
 
-    // Persist to config file if path is available
     if (this.configPath) {
       try {
         let currentConfig: any = {};
         if (await FileSystem.exists(this.configPath)) {
           currentConfig = await FileSystem.readJSON(this.configPath);
         }
-        
+
         currentConfig.aasm = {
           ...(currentConfig.aasm || {}),
-          mode: mode
+          mode,
         };
-        
+
         await FileSystem.writeJSON(this.configPath, currentConfig);
         Logger.debug(`Persisted AASM mode to ${this.configPath}`);
       } catch (error) {
-        Logger.warn(`Failed to persist AASM mode: ${error instanceof Error ? error.message : String(error)}`);
+        Logger.warn(
+          `Failed to persist AASM mode: ${error instanceof Error ? error.message : String(error)}`
+        );
       }
     }
   }
@@ -230,8 +231,234 @@ export class AASMModule {
     return this.config.model || 'default-model';
   }
 
+  private extractUserText(message: any): string {
+    return (message?.parts ?? [])
+      .filter((part: any) => part?.type === 'text')
+      .map((part: any) => {
+        if (typeof part.text === 'string') return part.text;
+        if (part.text && typeof part.text.value === 'string') return part.text.value;
+        return '';
+      })
+      .join('\n')
+      .trim();
+  }
+
+  async generateAntiPatternReport(sessionID: string, limit = 20): Promise<string> {
+    if (!this.client) {
+      return 'AASM review is unavailable: client is not initialized.';
+    }
+
+    const boundedLimit = Math.max(5, Math.min(100, limit));
+
+    const sessionsResult = await this.client.session.list();
+    const listedSessions = Array.isArray(sessionsResult?.data) ? sessionsResult.data : [];
+
+    const orderedSessionIDs = [
+      sessionID,
+      ...listedSessions
+        .map((session: any) => session?.id)
+        .filter((id: any) => typeof id === 'string'),
+    ].filter((id, index, arr) => typeof id === 'string' && arr.indexOf(id) === index) as string[];
+
+    const maxSessionsToScan = Math.max(10, Math.min(60, boundedLimit * 3));
+    const sessionIDsToScan = orderedSessionIDs.slice(0, maxSessionsToScan);
+
+    const aggregatedUserPrompts: Array<{ sessionID: string; messageID: string; text: string }> = [];
+    let failedSessionReads = 0;
+
+    for (const scanSessionID of sessionIDsToScan) {
+      try {
+        const messagesResult = await this.client.session.messages({
+          path: { id: scanSessionID },
+        });
+        const messages = (messagesResult.data ?? messagesResult) as any[];
+
+        const extracted = messages
+          .filter((message) => message?.info?.role === 'user')
+          .map((message) => ({
+            sessionID: scanSessionID,
+            messageID: message?.info?.id || 'unknown',
+            text: this.extractUserText(message),
+          }))
+          .filter((entry) => entry.text.length > 0);
+
+        aggregatedUserPrompts.push(...extracted);
+      } catch (error) {
+        failedSessionReads += 1;
+        Logger.warn(
+          `Failed to read session ${scanSessionID} for AASM review: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    }
+
+    const userPrompts = aggregatedUserPrompts.slice(-boundedLimit);
+    const sessionsIncluded = new Set(userPrompts.map((entry) => entry.sessionID)).size;
+
+    if (userPrompts.length === 0) {
+      return [
+        '# AASM Anti-pattern Review',
+        '',
+        `- Requested Session: ${sessionID}`,
+        `- Sessions Scanned: ${sessionIDsToScan.length}`,
+        `- Reviewed User Messages: 0 (전체 세션 기준 최근 ${boundedLimit}개 윈도우)`,
+        '',
+        '분석할 사용자 텍스트 메시지가 없습니다.',
+      ].join('\n');
+    }
+
+    if (this.config.enableLinting && this.subsessionHelper) {
+      try {
+        const prompt = buildReviewPrompt(userPrompts, {
+          requestedSessionID: sessionID,
+          reviewLimit: boundedLimit,
+          sessionsScanned: sessionIDsToScan.length,
+          sessionsIncluded,
+        });
+
+        const llmReport = (await this.subsessionHelper.callLLM(prompt, sessionID)).trim();
+        if (llmReport.length > 0) {
+          return llmReport;
+        }
+      } catch (error) {
+        Logger.warn(
+          `AASM review prompt generation failed, fallback to aggregate report: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    }
+
+    const linted = await Promise.all(
+      userPrompts.map(async (entry) => {
+        const intent = this.analyzer.analyzeIntent(entry.text);
+        const fallbackLint: LintResult = {
+          valid: true,
+          severity: 'advisory',
+          issues: [],
+          suggestions: [],
+          confidence: 1,
+        };
+
+        if (!this.config.enableLinting || !this.llmLinter) {
+          return {
+            ...entry,
+            intent,
+            lintResult: fallbackLint,
+            llmError: undefined as string | undefined,
+          };
+        }
+
+        try {
+          const lintResult = await this.llmLinter.lint(entry.text, entry.sessionID, intent);
+          return {
+            ...entry,
+            intent,
+            lintResult,
+            llmError: undefined as string | undefined,
+          };
+        } catch (error) {
+          return {
+            ...entry,
+            intent,
+            lintResult: fallbackLint,
+            llmError: error instanceof Error ? error.message : String(error),
+          };
+        }
+      })
+    );
+
+    const severityCount = { critical: 0, warning: 0, advisory: 0 };
+    const issueSummaryMap = new Map<
+      string,
+      {
+        severity: LintIssue['severity'];
+        type: LintIssue['type'];
+        message: string;
+        fix?: string;
+        count: number;
+        samples: string[];
+      }
+    >();
+
+    let lintErrors = 0;
+    for (const entry of linted) {
+      severityCount[entry.lintResult.severity] += 1;
+      if (entry.llmError) {
+        lintErrors += 1;
+      }
+
+      for (const issue of entry.lintResult.issues) {
+        const key = `${issue.type}|${issue.severity}|${issue.message}|${issue.fix ?? ''}`;
+        const existing = issueSummaryMap.get(key);
+        if (!existing) {
+          issueSummaryMap.set(key, {
+            severity: issue.severity,
+            type: issue.type,
+            message: issue.message,
+            fix: issue.fix,
+            count: 1,
+            samples: [`[${entry.sessionID}] ${entry.text.substring(0, 120)}`],
+          });
+          continue;
+        }
+
+        existing.count += 1;
+        if (existing.samples.length < 3) {
+          existing.samples.push(`[${entry.sessionID}] ${entry.text.substring(0, 120)}`);
+        }
+      }
+    }
+
+    const topIssues = [...issueSummaryMap.values()].sort((a, b) => b.count - a.count);
+    const totalIssues = topIssues.reduce((sum, issue) => sum + issue.count, 0);
+
+    const lines = [
+      '# AASM Anti-pattern Review',
+      '',
+      `- Requested Session: ${sessionID}`,
+      `- Sessions Scanned: ${sessionIDsToScan.length}`,
+      `- Sessions Included: ${sessionsIncluded}`,
+      `- Reviewed User Messages: ${linted.length} (전체 세션 기준 최근 ${boundedLimit}개 윈도우)`,
+      `- Prompt-level Severity: critical=${severityCount.critical}, warning=${severityCount.warning}, advisory=${severityCount.advisory}`,
+      `- Total Detected Issues: ${totalIssues}`,
+    ];
+
+    if (failedSessionReads > 0) {
+      lines.push(`- Session Read Failures: ${failedSessionReads}`);
+    }
+
+    if (lintErrors > 0) {
+      lines.push(`- LLM Lint Errors (fallback applied): ${lintErrors}`);
+    }
+
+    if (topIssues.length === 0) {
+      lines.push('', '## Summary', '', '감지된 안티패턴이 없습니다.');
+      return lines.join('\n');
+    }
+
+    lines.push('', '## Top Anti-patterns', '');
+
+    topIssues.forEach((issue, index) => {
+      lines.push(
+        `${index + 1}. [${issue.severity.toUpperCase()} | ${issue.type}] ${issue.message}`,
+        `   - Count: ${issue.count}`,
+        `   - Suggested Fix: ${issue.fix ?? 'N/A'}`,
+        `   - Sample Prompt: "${issue.samples[0]}"`,
+        ''
+      );
+    });
+
+    return lines.join('\n').trim();
+  }
+
   async handleCommand(command: string): Promise<string> {
-    const showToast = async (title: string, message: string, variant: 'success' | 'warning' | 'info' | 'error') => {
+    const showToast = async (
+      title: string,
+      message: string,
+      variant: 'success' | 'warning' | 'info' | 'error'
+    ) => {
       if (this.client) {
         await this.client.tui.showToast({
           body: { title, message, variant, duration: 4000 },
@@ -250,12 +477,12 @@ export class AASMModule {
         await showToast('AASM: PASSIVE', 'Architecture supervision DISABLED', 'warning');
         return '✅ AASM mode set to: PASSIVE (No architecture linting)';
 
-      case 'status':
+      case 'status': {
         const isEffectiveLinting = this.mode === 'active' && this.config.enableLinting;
         const statusMsg = `Mode: ${this.mode.toUpperCase()}\nLinting: ${
           isEffectiveLinting ? 'ON' : 'OFF'
         }${this.mode === 'passive' ? ' (Passive Mode)' : ''}`;
-        
+
         await showToast('AASM Status', statusMsg, 'info');
         return `
 AASM Status:
@@ -264,6 +491,7 @@ AASM Status:
 - Effective State: ${isEffectiveLinting ? 'ACTIVE' : 'DISABLED'}
 - Confidence Threshold: ${this.config.confidenceThreshold}
 `;
+      }
 
       default:
         await showToast('AASM Error', `Unknown command: ${command}`, 'error');

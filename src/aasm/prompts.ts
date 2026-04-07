@@ -1,5 +1,11 @@
 import type { LintResult } from '../types';
 
+export interface ReviewPromptMessage {
+  sessionID: string;
+  messageID: string;
+  text: string;
+}
+
 export function buildLintPrompt(userMessage: string): string {
   return `You are an architecture linter analyzing a user's request to an AI coding assistant.
 
@@ -49,6 +55,80 @@ CRITICAL: Double-check the language of "message", "fix", and "suggestions". They
 Severity MUST be one of: critical, warning, advisory (English only).
 
 JSON response:`;
+}
+
+export function buildReviewPrompt(
+  userMessages: ReviewPromptMessage[],
+  options: {
+    requestedSessionID: string;
+    reviewLimit: number;
+    sessionsScanned: number;
+    sessionsIncluded: number;
+  }
+): string {
+  const renderedMessages = userMessages
+    .map(
+      (message, index) =>
+        `${index + 1}. [session=${message.sessionID} message=${message.messageID}] ${message.text}`
+    )
+    .join('\n\n');
+
+  return `You are an architecture reviewer for AI coding assistant conversations.
+
+Analyze the user's requests aggregated from multiple sessions and generate an anti-pattern review report in MARKDOWN.
+
+REQUESTED SESSION ID: ${options.requestedSessionID}
+REVIEW WINDOW: last ${options.reviewLimit} user messages across sessions
+SESSIONS SCANNED: ${options.sessionsScanned}
+SESSIONS INCLUDED (WITH USER MESSAGES): ${options.sessionsIncluded}
+
+USER REQUESTS:
+${renderedMessages}
+
+You MUST output only markdown (no JSON, no code fences) with this structure:
+
+# AASM Anti-pattern Review
+
+## Executive Summary
+- 3-5 concise bullets summarizing overall architecture risk and trend.
+
+## Severity Overview
+- Critical: <count>
+- Warning: <count>
+- Advisory: <count>
+
+## Session Coverage
+- Sessions scanned: <count>
+- Sessions included: <count>
+- Notable differences by session: <short bullets>
+
+## Top Anti-patterns
+1. <Anti-pattern name>
+   - Severity: <critical|warning|advisory>
+   - Why risky: <short explanation>
+   - Evidence: <short quote/paraphrase from user requests>
+   - Recommended fix: <specific actionable fix>
+
+## Action Plan (Prioritized)
+1. <Immediate fix>
+2. <Short-term refactor>
+3. <Preventive guideline>
+
+## Quick Wins
+- 2-4 fast, low-risk actions the user can do now.
+
+Language rule:
+- Match the primary language of user requests.
+- If mostly Korean, write Korean.
+- If mostly English, write English.
+- If mixed, prefer Korean.
+
+Important:
+- Do not invent repository facts not supported by user requests.
+- Keep recommendations concrete and implementation-oriented.
+- Keep total length around 30-80 lines.
+
+Now generate the report.`;
 }
 
 export function parseLintResponse(response: string): LintResult | null {
