@@ -20,7 +20,7 @@
 
 ### Vibe Engineering for OpenCode
 
-**HSCMM** (Human-supervised Context Management) + **AASM** (Active Agent-supervised Architecture) + **TLS** (Terminal Log Supervision)
+**HSCMM** (Human-supervised Context Management) + **AASM** (Active Agent-supervised Architecture) + **ACPM** (Active Context Permission Management) + **TLS** (Terminal Log Supervision)
 
 [![npm version](https://img.shields.io/npm/v/@ttalkkak-lab/opencode-contexty?color=369eff&labelColor=black&logo=npm&style=flat-square)](https://www.npmjs.com/package/@ttalkkak-lab/opencode-contexty)
 [![License](https://img.shields.io/badge/license-Apache%202.0-white?labelColor=black&style=flat-square)](LICENSE)
@@ -53,7 +53,8 @@ That's **Vibe Engineering**:
 
 1. **HSCMM** — You control what the AI sees. Explicitly. Transparently.
 2. **AASM** — An active agent that lints your _intent_, not just your code.
-3. **TLS** — An intelligent wrapper that summarizes your terminal outputs.
+3. **ACPM** — A permission management system that controls what tools and folders the AI can access.
+4. **TLS** — An intelligent wrapper that summarizes your terminal outputs.
 
 ---
 
@@ -64,6 +65,7 @@ That's **Vibe Engineering**:
 - [Features](#features)
   - [HSCMM: Context You Can See](#hscmm-context-you-can-see)
   - [AASM: Your Architectural Guardian](#aasm-your-architectural-guardian)
+  - [ACPM: Active Context Permission Management](#acpm-active-context-permission-management)
   - [TLS: Terminal Log Supervision](#tls-terminal-log-supervision)
 - [Installation](#installation)
 - [Configuration](#configuration)
@@ -133,6 +135,37 @@ AASM analyzes your prompts _before_ the AI acts. It detects:
 # Check current mode
 /agent-status
 ```
+
+### ACPM: Active Context Permission Management
+
+> "The AI wants to run `rm -rf /`?" — **DENIED.**
+
+ACPM controls what the AI can touch before it touches anything. It manages access at two levels:
+
+- **Tool categories** — `file-read`, `file-write`, `shell`, `web`, `lsp`, `mcp`, each one can be enabled or disabled
+- **Folder permissions** — `denied`, `read-only`, `read-write` per folder path, with the longest path match winning
+
+Presets live in `.contexty/permissions.json`, so you can save permission sets, switch between them, and keep different workflows separate. If no preset is active, ACPM falls back to allow-all, which keeps the workflow moving with a safe default.
+
+Each OpenCode session can also carry its own active preset in `.contexty/sessions/{id}/active-preset.json`, so permission choices stay scoped to the work you're doing.
+
+```bash
+# Check current permission status
+acpm status
+
+# List all presets
+acpm list
+
+# Switch to a different preset
+acpm switch &lt;name&gt;
+
+# Reload presets from disk
+acpm reload
+```
+
+The CLI setup wizard walks through ACPM during `bunx @ttalkkak-lab/opencode-contexty init`, so you can set up presets without digging through files first.
+
+Hooks check tool execution before and after every run, intercept permission prompts, block unsafe actions with a toast, sanitize outputs after execution, and inject the current rules into the system prompt.
 
 ### TLS: Terminal Log Supervision
 
@@ -232,6 +265,9 @@ Create `contexty.config.json` in your project root:
 
 ```json
 {
+  "acpm": {
+    "defaultPreset": "default"
+  },
   "aasm": {
     "enabled": true,
     "mode": "active",
@@ -248,6 +284,7 @@ Create `contexty.config.json` in your project root:
 
 | Option                     | Type                      | Default        | Description                        |
 | -------------------------- | ------------------------- | -------------- | ---------------------------------- |
+| `acpm.defaultPreset`       | string                    | (none)         | Default permission preset name to load on startup |
 | `aasm.enabled`             | boolean                   | `true`         | Enable AASM globally               |
 | `aasm.mode`                | `"active"` \| `"passive"` | `"active"`     | Supervision mode                   |
 | `aasm.enableLinting`       | boolean                   | `true`         | Enable LLM-based linting           |
