@@ -11,38 +11,43 @@ function formatTokenCount(tokens: number): string {
   return `${tokens}`;
 }
 
-export function createCommandHook(tls: TLSModule, pluginInput: PluginInput): Hooks['command.execute.before'] {
+export function createCommandHook(
+  tls: TLSModule,
+  pluginInput: PluginInput
+): Hooks['command.execute.before'] {
   return async (input, output) => {
     sessionTracker.setSessionId(input.sessionID);
     if (input.command === 'tls') {
       const tlsResult = await tls.executeTLS(input.arguments, input.sessionID);
-      const template = (tlsResult.success) ? getOutputPrompt(tlsResult) : "Just Stop. Do not anything.";
+      const template = tlsResult.success
+        ? getOutputPrompt(tlsResult)
+        : 'Just Stop. Do not anything.';
 
       const timestamp = Date.now();
       const toolPart: ToolPart = {
         id: generateCustomId('tls'),
         sessionID: input.sessionID,
         messageID: generateCustomId('msg'),
-        type: "tool",
-        callID: generateCustomId("call"),
-        tool: "bash",
+        type: 'tool',
+        callID: generateCustomId('call'),
+        tool: 'bash',
         state: {
-          title: "TLS summary context",
-          status: "completed",
-          input:  {
-            command: input.arguments
+          title: 'TLS summary context',
+          status: 'completed',
+          input: {
+            command: input.arguments,
           },
           output: `output: ${tlsResult.output}\nsummary: ${tlsResult.summary}`,
           metadata: {
             output: `output: ${tlsResult.output}\summary: ${tlsResult.summary}`,
-            truncated: false
+            truncated: false,
           },
           time: {
             start: timestamp,
-            end: timestamp
-          }
-        }
-      }
+            end: timestamp,
+          },
+        },
+      };
 
       appendToolLogEntry(pluginInput.directory, input.sessionID, toolPart);
 
@@ -60,8 +65,8 @@ export function createCommandHook(tls: TLSModule, pluginInput: PluginInput): Hoo
     if (input.command === 'ctx') {
       const directory = pluginInput.directory;
       const [blacklistSpec, logSpec] = await Promise.all([
-        readToolLogBlacklist(directory),
-        readToolLog(directory),
+        readToolLogBlacklist(directory, input.sessionID),
+        readToolLog(directory, input.sessionID),
       ]);
       const bannedIds = new Set(blacklistSpec.ids);
       const activeParts = logSpec.parts.filter((p) => !bannedIds.has(p.id));
@@ -76,8 +81,10 @@ export function createCommandHook(tls: TLSModule, pluginInput: PluginInput): Hoo
         for (const part of activeParts) {
           const filePath = (part.state as ToolPart['state']).input?.filePath;
           if (typeof filePath !== 'string') continue;
-          const outputStr = typeof (part.state as ToolPart['state']).output === 'string'
-            ? (part.state as ToolPart['state']).output : '';
+          const outputStr =
+            typeof (part.state as ToolPart['state']).output === 'string'
+              ? (part.state as ToolPart['state']).output
+              : '';
           const tokens = Math.ceil(outputStr.length / 4);
           totalTokens += tokens;
 
@@ -99,12 +106,16 @@ export function createCommandHook(tls: TLSModule, pluginInput: PluginInput): Hoo
           .sort((a, b) => b.tokens - a.tokens);
 
         const lines: string[] = [];
-        lines.push(`Total: ~${formatTokenCount(totalTokens)} tokens (${entries.length} files, ${activeParts.length} parts)`);
+        lines.push(
+          `Total: ~${formatTokenCount(totalTokens)} tokens (${entries.length} files, ${activeParts.length} parts)`
+        );
         lines.push('');
         for (const entry of entries) {
-          const name = entry.filePath.length > 50
-            ? '…' + entry.filePath.slice(-49) : entry.filePath;
-          lines.push(`${name}  ${entry.percentage.toFixed(1)}%  ~${formatTokenCount(entry.tokens)}`);
+          const name =
+            entry.filePath.length > 50 ? '…' + entry.filePath.slice(-49) : entry.filePath;
+          lines.push(
+            `${name}  ${entry.percentage.toFixed(1)}%  ~${formatTokenCount(entry.tokens)}`
+          );
         }
         text = lines.join('\n');
       }
@@ -127,5 +138,5 @@ export function createCommandHook(tls: TLSModule, pluginInput: PluginInput): Hoo
 
       throw new Error('__CTX_HANDLED__');
     }
-  }
+  };
 }
