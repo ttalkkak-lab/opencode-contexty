@@ -1,10 +1,7 @@
 {
   "$schema": "./contexty.schema.json",
   "aasm": {
-    "enabled": true,
     "mode": "passive",
-    "enableLinting": true,
-    "confidenceThreshold": 0.7,
     "model": "google/antigravity-gemini-3-flash"
   },
   "dcp": {
