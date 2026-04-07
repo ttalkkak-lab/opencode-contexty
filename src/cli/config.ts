@@ -8,10 +8,7 @@ import { join } from 'path';
 export interface ContextyConfig {
   $schema: string;
   aasm: {
-    enabled: boolean;
     mode: 'passive' | 'active';
-    enableLinting: boolean;
-    confidenceThreshold: number;
     model?: string;
   };
 }
@@ -19,10 +16,7 @@ export interface ContextyConfig {
 export const DEFAULT_CONFIG: ContextyConfig = {
   $schema: 'https://unpkg.com/@ttalkkak-lab/opencode-contexty/schema.json',
   aasm: {
-    enabled: true,
     mode: 'passive',
-    enableLinting: true,
-    confidenceThreshold: 0.7,
   },
 };
 

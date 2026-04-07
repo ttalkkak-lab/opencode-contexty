@@ -13,7 +13,7 @@ import { ContextyConfig, DEFAULT_CONFIG, writeConfig } from './config.js';
 import { IDEType, installIDEExtension, getIDEDisplayName, isValidIDE } from './ide.js';
 import { runACPMWizard } from './acpm.js';
 import { registerPlugin } from './plugin.js';
-import { prompt, promptSelect, promptYesNo, promptNumber } from './prompt.js';
+import { prompt, promptSelect, promptYesNo } from './prompt.js';
 
 // ============================================================================
 // CLI Arguments
@@ -22,10 +22,7 @@ import { prompt, promptSelect, promptYesNo, promptNumber } from './prompt.js';
 interface CliValues {
   'no-tui': boolean;
   ide: string;
-  'aasm-enabled': string;
   'aasm-mode': string;
-  'enable-linting': string;
-  'confidence-threshold': string;
   model: string;
   help: boolean;
   version: boolean;
@@ -40,10 +37,7 @@ interface CliConfig extends ContextyConfig {
 const DEFAULT_CLI_VALUES: CliValues = {
   'no-tui': false,
   ide: 'vscode',
-  'aasm-enabled': 'true',
   'aasm-mode': 'passive',
-  'enable-linting': 'true',
-  'confidence-threshold': '0.7',
   model: '',
   help: false,
   version: false,
@@ -56,10 +50,7 @@ function parseCliArgs(): { values: CliValues; positionals: string[] } {
       options: {
         'no-tui': { type: 'boolean', default: false },
         ide: { type: 'string', default: 'vscode' },
-        'aasm-enabled': { type: 'string', default: 'true' },
         'aasm-mode': { type: 'string', default: 'passive' },
-        'enable-linting': { type: 'string', default: 'true' },
-        'confidence-threshold': { type: 'string', default: '0.7' },
         model: { type: 'string', default: '' },
         help: { type: 'boolean', short: 'h', default: false },
         version: { type: 'boolean', short: 'v', default: false },
@@ -84,10 +75,7 @@ ${colors.bold}Usage:${colors.reset} npx @ttalkkak-lab/opencode-contexty init [op
 ${colors.bold}Options:${colors.reset}
   --no-tui                      Run in non-interactive mode
   --ide=<ide>                   IDE for extension: vscode (default) | vscode-insiders | vscodium | cursor | windsurf | none
-  --aasm-enabled=<bool>         Enable AASM: true (default) | false
   --aasm-mode=<mode>            Set AASM mode: passive (default) | active
-  --enable-linting=<bool>       Enable architecture linting: true (default) | false
-  --confidence-threshold=<num>  Set confidence threshold: 0.0-1.0 (default: 0.7)
   --model=<model>               Set custom model for AASM (optional)
   -h, --help                    Show this help message
   -v, --version                 Show version
@@ -135,10 +123,7 @@ async function runInteractive(targetDir: string): Promise<{ config: CliConfig; i
 
   const acpmDefaultPreset = await runACPMWizard(targetDir);
 
-  // 1. Enable AASM
-  const enabled = await promptYesNo('Enable AASM (Active Agent-supervised Architecture)?', true);
-
-  // 2. AASM Mode
+  // 1. AASM Mode
   const modeChoice = await promptSelect(
     'Select AASM supervision mode:',
     [
@@ -149,26 +134,7 @@ async function runInteractive(targetDir: string): Promise<{ config: CliConfig; i
   );
   const aasmMode: 'passive' | 'active' = modeChoice.startsWith('passive') ? 'passive' : 'active';
 
-  // 3. Enable Linting
-  const enableLinting = await promptYesNo('Enable architecture linting?', true);
-
-  // 4. Confidence Threshold
-  const thresholdChoice = await promptSelect(
-    'Set confidence threshold for AASM decisions:',
-    ['0.5 - Lenient', '0.7 - Balanced (recommended)', '0.9 - Strict', 'Custom value'],
-    1
-  );
-
-  let confidenceThreshold = 0.7;
-  if (thresholdChoice.startsWith('0.5')) confidenceThreshold = 0.5;
-  else if (thresholdChoice.startsWith('0.7')) confidenceThreshold = 0.7;
-  else if (thresholdChoice.startsWith('0.9')) confidenceThreshold = 0.9;
-  else if (thresholdChoice.startsWith('Custom')) {
-    confidenceThreshold = await promptNumber('Enter confidence threshold (0.0-1.0)', 0.7);
-    confidenceThreshold = Math.max(0, Math.min(1, confidenceThreshold));
-  }
-
-  // 5. Model (optional)
+  // 2. Model (optional)
   const useCustomModel = await promptYesNo(
     'Use a custom model for AASM? (default: session model)',
     false
@@ -186,7 +152,7 @@ async function runInteractive(targetDir: string): Promise<{ config: CliConfig; i
 
   const config: CliConfig = {
     $schema: DEFAULT_CONFIG.$schema,
-    aasm: { enabled, mode: aasmMode, enableLinting, confidenceThreshold },
+    aasm: { mode: aasmMode },
   };
 
   if (acpmDefaultPreset) {
@@ -205,18 +171,12 @@ async function runInteractive(targetDir: string): Promise<{ config: CliConfig; i
 // ============================================================================
 
 function runNonInteractive(values: CliValues): CliConfig {
-  const enabled = values['aasm-enabled'] !== 'false';
   const aasmMode = values['aasm-mode'] === 'active' ? 'active' : 'passive';
-  const enableLinting = values['enable-linting'] !== 'false';
-  const confidenceThreshold = Math.max(
-    0,
-    Math.min(1, parseFloat(values['confidence-threshold']) || 0.7)
-  );
   const model = values.model || undefined;
 
   const config: CliConfig = {
     $schema: DEFAULT_CONFIG.$schema,
-    aasm: { enabled, mode: aasmMode, enableLinting, confidenceThreshold },
+    aasm: { mode: aasmMode },
   };
 
   if (model) {
@@ -318,10 +278,7 @@ async function main(): Promise<void> {
 ${colors.green}${colors.bold}✓ Setup complete!${colors.reset}
 
 ${colors.bold}Configuration:${colors.reset}
-  AASM Enabled:  ${config.aasm.enabled}
   AASM Mode:     ${config.aasm.mode}
-  Linting:       ${config.aasm.enableLinting}
-  Confidence:    ${config.aasm.confidenceThreshold}
   Model:         ${config.aasm.model || '(session default)'}
   IDE Extension: ${ideInfo}
 
