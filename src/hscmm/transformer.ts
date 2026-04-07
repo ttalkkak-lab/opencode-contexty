@@ -1,9 +1,9 @@
 import {
   readToolLog,
   readToolLogBlacklist,
+  writeToolLog,
   readPruningState,
   writePruningState,
-  writeToolLog,
   ToolPart,
 } from './storage';
 import { sessionTracker } from '../core/sessionTracker';
@@ -20,6 +20,8 @@ import { injectCompressNudges, injectMessageIds } from '../dcp/messages/inject';
 import { prune } from '../dcp/messages/prune';
 import { syncCompressionBlocks, buildToolIdList } from '../dcp/messages/sync';
 import { stripHallucinations } from '../dcp/messages/utils';
+import { applyPendingManualTrigger } from '../dcp/commands';
+import { stripStaleMetadata } from '../dcp/messages/inject';
 import type { DCPConfig, SessionState, WithParts } from '../dcp/types';
 import type { ContextyConfig } from '../types';
 
@@ -33,7 +35,12 @@ type TransformClient = {
   };
 };
 
-function createEmptyPruningState(sessionId: string | null): SessionState {
+export interface StateAccess {
+  get: (sessionId: string) => Promise<SessionState>;
+  persist: (sessionId: string, state: SessionState) => Promise<void>;
+}
+
+function createEmptyDcpState(sessionId: string): SessionState {
   return {
     sessionId,
     isSubAgent: false,
@@ -72,10 +79,10 @@ function createEmptyPruningState(sessionId: string | null): SessionState {
       nextRef: 1,
     },
     lastCompaction: 0,
-    currentTurn: 0,
+    currentTurn: 1,
     variant: undefined,
     modelContextLimit: undefined,
-    systemPromptTokens: undefined,
+    systemPromptTokens: 0,
   };
 }
 
@@ -83,28 +90,15 @@ function getParts(message: WithParts): any[] {
   return Array.isArray(message.parts) ? message.parts : [];
 }
 
-async function resolveSessionId(client: TransformClient | undefined, messages: WithParts[]): Promise<string | null> {
-  const messageSessionId = messages.find((message) => typeof message.info.sessionID === 'string' && message.info.sessionID.length > 0)?.info.sessionID;
-  if (typeof messageSessionId === 'string' && messageSessionId.length > 0) {
-    return messageSessionId;
-  }
-
+export async function resolveSessionId(messages: WithParts[]): Promise<string | null> {
   const trackedSessionId = sessionTracker.getSessionId();
   if (trackedSessionId) {
     return trackedSessionId;
   }
 
-  try {
-    const sessionsResult = await client?.session?.list?.();
-    const sessions = Array.isArray(sessionsResult) ? sessionsResult : sessionsResult?.data;
-
-    if (Array.isArray(sessions)) {
-      const firstSessionId = sessions.find((session) => typeof session?.id === 'string' && session.id.length > 0)?.id;
-      if (typeof firstSessionId === 'string' && firstSessionId.length > 0) {
-        return firstSessionId;
-      }
-    }
-  } catch {
+  const messageSessionId = messages.find((message) => typeof message.info.sessionID === 'string' && message.info.sessionID.length > 0)?.info.sessionID;
+  if (typeof messageSessionId === 'string' && messageSessionId.length > 0) {
+    return messageSessionId;
   }
 
   return null;
@@ -179,8 +173,14 @@ async function filePartToToolPart(filePart: any, directory: string, sessionId: s
   };
 }
 
-export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, client?: TransformClient) {
-  const pruningStateCache = new Map<string, SessionState>();
+export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, _client?: TransformClient, stateAccess?: StateAccess) {
+  const dcpStateAccess: StateAccess = stateAccess ?? {
+    get: async (sessionId: string) => {
+      const state = await readPruningState(directory, sessionId);
+      return state ?? createEmptyDcpState(sessionId);
+    },
+    persist: async (sessionId: string, state: SessionState) => writePruningState(directory, sessionId, state),
+  };
 
   return async (_input: unknown, output: HookOutput) => {
     let resolvedSessionId: string | null = null;
@@ -219,13 +219,9 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, c
         output.messages = processableMessages;
       }
 
-      resolvedSessionId = await resolveSessionId(client, output.messages);
+      resolvedSessionId = await resolveSessionId(output.messages);
       if (resolvedSessionId) {
-        let state = pruningStateCache.get(resolvedSessionId);
-        if (!state) {
-          state = (await readPruningState(directory, resolvedSessionId)) ?? createEmptyPruningState(resolvedSessionId);
-          pruningStateCache.set(resolvedSessionId, state);
-        }
+        const state = await dcpStateAccess.get(resolvedSessionId);
 
         state.sessionId = resolvedSessionId;
         stripHallucinations(output.messages);
@@ -235,9 +231,12 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, c
         prune(dcpConfig, state, output.messages, dcpLogger);
         injectCompressNudges(dcpConfig, state, output.messages);
         injectMessageIds(state, output.messages);
+        applyPendingManualTrigger(state, output.messages, dcpLogger);
+        stripStaleMetadata(output.messages);
+        // TODO: cacheSystemPromptTokens was present in the original codebase, but is not exported here.
 
         try {
-          await writePruningState(directory, resolvedSessionId, state);
+          await dcpStateAccess.persist(resolvedSessionId, state);
         } catch {
         }
       }
