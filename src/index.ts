@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { Logger } from './utils';
 import { AASMModule } from './aasm';
-import { createAASMChatHook, createHSCMMTransformHook, createTLSCommandHook } from './hooks';
+import { createAASMChatHook, createHSCMMTransformHook, createCommandHook } from './hooks';
 import { createAgentTool } from './tools';
 import { ContextyConfig } from './types';
 import { TLSModule } from './tls';
@@ -11,7 +11,6 @@ import { TLSModule } from './tls';
 export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
   const {client, directory} = pluginInput;
 
-  // Initialize Logger for server-side logging
   Logger.setClient(client);
 
   const defaultConfig: ContextyConfig = {
@@ -36,7 +35,6 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
       config = {
         ...defaultConfig,
         aasm: { ...defaultConfig.aasm, ...userConfig.aasm },
-        // Preserve other optional configs if present
         hscmm: userConfig.hscmm,
         tls: userConfig.tls,
       };
@@ -59,7 +57,7 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
       aasm: createAgentTool(aasm),
     },
     'chat.message': createAASMChatHook(aasm, client),
-    'command.execute.before': createTLSCommandHook(tls, pluginInput),
+    'command.execute.before': createCommandHook(tls, pluginInput),
     'experimental.chat.messages.transform': createHSCMMTransformHook(directory),
   };
 };

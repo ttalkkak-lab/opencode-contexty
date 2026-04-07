@@ -12,6 +12,10 @@
     "agent-status": {
       "description": "Check AASM status",
       "template": "Call the 'aasm' tool with argument { \"mode\": \"status\" }."
+    },
+    "ctx": {
+      "description": "Show context window usage stats",
+      "template": ""
     }
   },
   "$schema": "https://opencode.ai/config.json"
