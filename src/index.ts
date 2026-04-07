@@ -35,6 +35,7 @@ import {
 } from './dcp/commands';
 import { handleCompressionEvent } from './dcp/event-handler';
 import { renderSystemPrompt } from './dcp/prompts';
+import { stripHallucinationsFromString } from './dcp/messages/utils';
 import type { SessionState } from './dcp/types';
 import { readPruningState, writePruningState } from './hscmm/storage';
 import { sessionTracker } from './core/sessionTracker';
@@ -120,10 +121,7 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
 
   const defaultConfig: ContextyConfig = {
     aasm: {
-      enabled: true,
-      mode: 'active',
-      enableLinting: true,
-      confidenceThreshold: 0.7,
+      mode: 'passive',
     },
     tls: {
       enabled: true,
@@ -385,6 +383,13 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
       undefined,
       dcpEnabled ? { get: getDcpState, persist: persistDcpState } : undefined
     ),
+    ...(dcpEnabled
+      ? {
+          'chat.text.complete': async (_input: any, output: { text: string }) => {
+            output.text = stripHallucinationsFromString(output.text);
+          },
+        }
+      : {}),
     'tool.execute.before': createToolExecuteBeforeHook(acpm, client),
     'tool.execute.after': createToolExecuteAfterHook(acpm),
     'permission.ask': createPermissionAskHook(acpm),
