@@ -19,6 +19,8 @@ export type {
   ManualModeConfig,
   TurnProtection,
   ExperimentalConfig,
+  TokenBreakdown,
+  AggregatedStats,
 } from './types';
 export {
   countTokens,

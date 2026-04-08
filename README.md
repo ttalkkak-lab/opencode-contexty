@@ -1,12 +1,10 @@
 > [!NOTE]
 >
-> **opencode-contexty** is a plugin for [OpenCode](https://github.com/sst/opencode) that brings "Vibe Engineering" to AI-assisted development.
->
-> Stop fighting context windows. Start feeling your code.
+> **opencode-contexty**는 [OpenCode](https://github.com/sst/opencode)에 컨텍스트 엔지니어링 레이어를 추가하는 플러그인입니다.
 
 > [!TIP]
 >
-> **Quick Start**: One command to install. AASM watches your back. HSCMM gives you control.
+> **빠른 시작**
 >
 > ```bash
 > bunx @ttalkkak-lab/opencode-contexty init
@@ -18,9 +16,9 @@
 
 # opencode-contexty
 
-### Vibe Engineering for OpenCode
+### OpenCode를 위한 컨텍스트 엔지니어링
 
-**HSCMM** (Human-supervised Context Management) + **AASM** (Active Agent-supervised Architecture) + **TLS** (Terminal Log Supervision)
+**HSCMM** · **AASM** · **ACPM** · **TLS**
 
 [![npm version](https://img.shields.io/npm/v/@ttalkkak-lab/opencode-contexty?color=369eff&labelColor=black&logo=npm&style=flat-square)](https://www.npmjs.com/package/@ttalkkak-lab/opencode-contexty)
 [![License](https://img.shields.io/badge/license-Apache%202.0-white?labelColor=black&style=flat-square)](LICENSE)
@@ -35,58 +33,35 @@
 
 ---
 
-## The Problem
+## 개요
 
-You've been there:
+AI 코딩 워크플로우에서 반복적으로 나타나는 세 가지 문제가 있습니다.
 
-- **The "New Chat Dilemma"**: Start fresh, lose all context. Continue, drown in irrelevant history.
-- **The "Productivity Paradox"**: AI writes code fast, but fixing architectural disasters takes longer than writing it yourself.
-- **The "Black Box Frustration"**: What's actually in the AI's context? Who knows.
+- **컨텍스트 단절** — 새 세션을 시작하면 이전 컨텍스트가 소실되고, 세션을 유지하면 불필요한 히스토리가 누적됩니다.
+- **아키텍처 품질 저하** — 생성 속도는 빠르지만 코드 구조가 점진적으로 훼손됩니다.
+- **불투명한 컨텍스트** — 모델이 현재 어떤 정보를 참조하는지 확인할 방법이 없습니다.
 
-**These aren't feature requests. They're existential threats to AI-assisted development.**
+opencode-contexty는 이 문제를 네 가지 시스템으로 해결합니다.
 
-## The Solution: Vibe Engineering
-
-What if you could _feel_ your context? What if the AI had a senior architect watching every prompt?
-
-That's **Vibe Engineering**:
-
-1. **HSCMM** — You control what the AI sees. Explicitly. Transparently.
-2. **AASM** — An active agent that lints your _intent_, not just your code.
-3. **TLS** — An intelligent wrapper that summarizes your terminal outputs.
+| 시스템 | 설명 |
+| --- | --- |
+| **HSCMM** | Human-supervised Context Management — 컨텍스트를 시각화하고 직접 제어 |
+| **AASM** | Active Agent-supervised Architecture — 프롬프트 단계에서 아키텍처 안티패턴 감지 |
+| **ACPM** | Active Context Permission Management — 도구 및 경로별 접근 권한 관리 |
+| **TLS** | Terminal Log Supervision — 터미널 출력을 AI로 요약 |
 
 ---
 
-## Contents
+## 기능
 
-- [The Problem](#the-problem)
-- [The Solution: Vibe Engineering](#the-solution-vibe-engineering)
-- [Features](#features)
-  - [HSCMM: Context You Can See](#hscmm-context-you-can-see)
-  - [AASM: Your Architectural Guardian](#aasm-your-architectural-guardian)
-  - [TLS: Terminal Log Supervision](#tls-terminal-log-supervision)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Philosophy](#philosophy)
+### HSCMM: 컨텍스트 가시화 및 제어
 
----
+도구 사용 내역을 `.contexty/tool-parts.json`에 기록하며, VSCode 확장과 연동하여 다음 기능을 제공합니다.
 
-## Features
-
-### HSCMM: Context You Can See
-
-> "What's in the AI's context right now?"
->
-> With HSCMM: You always know.
-
-HSCMM persists all tool interactions to `.contexty/tool-parts.json`. Combined with our **VSCode Extension**, you get:
-
-- 👁️ **Visual Context Inspector** — See exactly what's in the AI's context window via Context Explorer
-- 🎯 **Manual Context Control** — Add files, folders, or text selections to context with one click
-- ✂️ **Remove from Context** — Exclude unwanted parts with inline remove buttons
-- 🔦 **Context Highlighting** — Lines in context are highlighted directly in the editor
-
-**No more guessing. No more "the AI forgot everything." You see it. You control it.**
+- **Context Explorer** — 모델이 참조 중인 컨텍스트를 파일 트리로 확인
+- **수동 관리** — 파일, 폴더, 선택 영역을 직접 컨텍스트에 추가
+- **인라인 제거** — 불필요한 항목을 즉시 제거
+- **에디터 하이라이트** — 컨텍스트에 포함된 라인을 에디터에 시각적으로 표시
 
 ```
 ┌─────────────────────────────────────────┐
@@ -101,142 +76,139 @@ HSCMM persists all tool interactions to `.contexty/tool-parts.json`. Combined wi
 └─────────────────────────────────────────┘
 ```
 
-The plugin automatically captures tool logs. The extension lets you _see_ and _manage_ them.
+### AASM: 아키텍처 감독
 
-### AASM: Your Architectural Guardian
+코드 생성 전 프롬프트를 분석하여 다음 안티패턴을 감지합니다.
 
-> "Put everything in main.ts" — **BLOCKED.**
+| 안티패턴 | 감지 예시 |
+| --- | --- |
+| **모놀리식 파일** | 단일 파일에 모든 로직을 집중하는 지시 |
+| **갓 오브젝트** | 모든 책임을 담당하는 단일 클래스 생성 요청 |
+| **전역 가변 상태** | 공유 가변 객체 사용 지시 |
+| **강결합** | 컴포넌트가 다른 컴포넌트 내부를 직접 참조하는 구조 |
+| **관심사 혼재** | UI 컴포넌트에 데이터 접근 로직을 포함하는 구조 |
 
-AASM analyzes your prompts _before_ the AI acts. It detects:
+감지 결과는 세 단계로 분류됩니다.
 
-| Anti-Pattern         | What AASM Catches                                      |
-| -------------------- | ------------------------------------------------------ |
-| **Monolithic Files** | "Add all logic to index.ts"                            |
-| **God Objects**      | "Create a Manager class that handles everything"       |
-| **Global State**     | "Use a shared mutable object"                          |
-| **Tight Coupling**   | "Make ComponentA directly call ComponentB's internals" |
-| **Mixed Concerns**   | "Put database queries in the React component"          |
-
-**Three severity levels:**
-
-- 🚫 **Critical**: Request blocked. You must rephrase or disable AASM.
-- ⚠️ **Warning**: AI proceeds with caution, explains risks.
-- 💡 **Advisory**: Information only, no blocking.
+- **Critical** — 실행 차단. 프롬프트를 수정하거나 AASM을 비활성화해야 합니다.
+- **Warning** — 위험 요소를 고지하고 계속 진행합니다.
+- **Advisory** — 참고 정보만 제공합니다.
 
 ```bash
-# Enable active supervision
+# 감독 모드 활성화
 /agent-active
 
-# Disable (when you know what you're doing)
+# 감독 모드 비활성화
 /agent-passive
 
-# Check current mode
+# 현재 상태 확인
 /agent-status
 ```
 
-### TLS: Terminal Log Supervision
+### ACPM: 접근 권한 관리
 
-> "Did the build fail? Why?" — **Summarized.**
+도구 카테고리와 경로 단위로 AI의 접근 범위를 제어합니다.
 
-TLS wraps your terminal commands and uses AI to summarize the output. It categorizes results into Success, Warning, or Error, so you don't have to parse thousands of lines of logs to find the issue.
+- **도구 카테고리** — `file-read`, `file-write`, `shell`, `web`, `lsp`, `mcp` 단위로 활성화/비활성화
+- **경로 권한** — 경로별 `denied`, `read-only`, `read-write` 지정. 더 구체적인 경로가 우선 적용됩니다.
+
+권한 설정은 프리셋으로 저장하여 전환 가능합니다. 세션별 독립 프리셋도 지원합니다(`.contexty/sessions/{id}/active-preset.json`). 활성 프리셋이 없을 경우 전체 허용으로 동작합니다.
 
 ```bash
-# Wrap any command with 'tls'
+acpm status          # 현재 권한 상태 확인
+acpm list            # 프리셋 목록 조회
+acpm switch <name>   # 프리셋 전환
+acpm reload          # 디스크에서 설정 재로드
+```
+
+초기화(`bunx @ttalkkak-lab/opencode-contexty init`) 과정에서 대화형 위저드를 통해 프리셋을 생성할 수 있습니다.
+
+### TLS: 터미널 출력 요약
+
+명령어 실행 결과를 AI로 분석하여 `Success`, `Warning`, `Error`로 분류하고 핵심 정보를 요약합니다.
+
+```bash
 /tls npm run build
 /tls git status
 ```
-
-**Output Example:**
 
 ```
 ----------------------------------------------------
 npm run build
 ----------------------------------------------------
-... (verbose output hidden/summarized) ...
-----------------------------------------------------
-summary:
- Status: Error
- - Build failed in src/index.ts
- - Type mismatch on line 42: Argument of type 'string' is not assignable to parameter of type 'number'.
+상태: Error
+ - src/index.ts 빌드 실패
+ - 42줄: 타입 불일치 — 'string'을 'number' 파라미터에 할당할 수 없습니다.
 ```
 
 ---
 
-## Installation
+## 설치
 
-### For Humans
-
-Install opencode-contexty with a single command:
+### CLI
 
 ```bash
 bunx @ttalkkak-lab/opencode-contexty init
 ```
 
-The CLI will:
+초기화 시 자동으로 수행되는 작업:
 
-- Install and register the plugin in your OpenCode configuration
-- Set up the IDE extension (VSCode, Cursor, Windsurf, etc.)
-- Create `contexty.config.json` with your preferences
-- Validate the installation
+- OpenCode에 플러그인 등록
+- IDE 확장 설치 (VSCode, Cursor, Windsurf 등)
+- `contexty.config.json` 생성
+- 설치 검증
 
-**Requirements**: [OpenCode](https://opencode.ai) must be installed first.
+**사전 요구사항**: [OpenCode](https://opencode.ai)가 설치되어 있어야 합니다.
 
-### For LLM Agents
+### LLM을 통한 설치
 
-Paste this into your LLM agent session:
+아래 프롬프트를 LLM 세션에 붙여넣으면 자동으로 설치 및 설정이 진행됩니다.
 
 ```
 Install and configure opencode-contexty by following the instructions here:
 https://raw.githubusercontent.com/ttalkkak-lab/opencode-contexty/refs/heads/main/installation.md
 ```
 
-Your LLM agent will handle the entire setup process automatically.
+---
+
+더 자세한 옵션은 [설치 가이드](installation.md)를 참고하세요.
 
 ---
 
-For detailed installation options and configuration, see the [installation guide](installation.md).
+## VSCode 확장
+
+Context Explorer 확장은 설치 시 자동으로 설치됩니다.
+
+| 기능 | 설명 |
+| --- | --- |
+| **Context Explorer** | 컨텍스트 파일 트리 뷰 |
+| **드래그 앤 드롭** | 파일/폴더를 드래그하여 컨텍스트에 추가 |
+| **파일 추가** | 우클릭 컨텍스트 메뉴로 추가 |
+| **선택 영역 추가** | 코드 선택 후 우클릭, 상태바, CodeLens로 추가 |
+| **인라인 제거** | 트리에서 X 버튼으로 즉시 제거 |
+| **에디터 하이라이트** | 컨텍스트 포함 라인을 연한 파란색으로 표시 |
+| **자동 갱신** | 파일 변경 시 트리 자동 업데이트 |
+| **블랙리스트** | 제거된 항목을 `.contexty/tool-parts.blacklist.json`에 저장하여 영구 제외 |
+
+플러그인과 확장을 분리한 이유는 다음과 같습니다.
+
+- 플러그인은 데이터 수집을, 확장은 시각화를 담당합니다.
+- 터미널 출력과 UI를 분리하여 각 역할을 명확히 합니다.
+- IDE 통합으로 파일을 클릭하면 에디터에서 바로 열립니다.
 
 ---
 
-## VSCode Extension
+## 설정
 
-The **Context Explorer** extension is automatically installed during setup and provides a visual interface for managing context items.
-
-### Features
-
-| Feature                  | Description                                                                               |
-| ------------------------ | ----------------------------------------------------------------------------------------- |
-| **Context Explorer**     | Hierarchical tree view in the Explorer sidebar showing all files with context parts       |
-| **Drag & Drop**          | Drag files or folders directly into Context Explorer to add them to context               |
-| **Add Files to Context** | Right-click files/folders to add to context                                               |
-| **Add Selections**       | Select text and add via right-click, status bar button, or CodeLens overlay               |
-| **Remove from Context**  | Inline remove buttons on parts and files in the tree view                                 |
-| **Context Highlighting** | Lines included in context are highlighted with a light blue background in the editor      |
-| **Auto-Refresh**         | Tree view automatically updates when files change                                         |
-| **Blacklist Support**    | Removed parts are stored in `.contexty/tool-parts.blacklist.json` for permanent exclusion |
-
-### Why a Separate Extension?
-
-The OpenCode plugin captures data. The VSCode extension displays it. This separation means:
-
-1. **No terminal clutter** — Your OpenCode stays clean
-2. **Rich UI** — Trees, icons, and inline actions that terminals can't do
-3. **Persistent view** — Context Explorer stays open while you work
-4. **IDE integration** — Click a file in context → opens in editor
-
----
-
-## Configuration
-
-Create `contexty.config.json` in your project root:
+프로젝트 루트의 `contexty.config.json`으로 구성합니다.
 
 ```json
 {
+  "acpm": {
+    "defaultPreset": "default"
+  },
   "aasm": {
-    "enabled": true,
-    "mode": "active",
-    "enableLinting": true,
-    "confidenceThreshold": 0.7,
+    "mode": "passive",
     "model": "claude-sonnet-4-20250514"
   },
   "tls": {
@@ -246,39 +218,17 @@ Create `contexty.config.json` in your project root:
 }
 ```
 
-| Option                     | Type                      | Default        | Description                        |
-| -------------------------- | ------------------------- | -------------- | ---------------------------------- |
-| `aasm.enabled`             | boolean                   | `true`         | Enable AASM globally               |
-| `aasm.mode`                | `"active"` \| `"passive"` | `"active"`     | Supervision mode                   |
-| `aasm.enableLinting`       | boolean                   | `true`         | Enable LLM-based linting           |
-| `aasm.confidenceThreshold` | number                    | `0.7`          | Minimum confidence for suggestions |
-| `aasm.model`               | string                    | (host default) | LLM model for linting              |
-| `tls.enabled`              | boolean                   | `true`         | Enable TLS globally                |
-| `tls.model`                | string                    | (host default) | LLM model for summarization        |
+| 옵션 | 타입 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `acpm.defaultPreset` | `string` | — | 시작 시 로드할 기본 권한 프리셋 |
+| `aasm.mode` | `"active"` \| `"passive"` | `"passive"` | 감독 모드 |
+| `aasm.model` | `string` | 호스트 기본값 | 린팅에 사용할 LLM 모델 |
+| `tls.enabled` | `boolean` | `true` | TLS 활성화 여부 |
+| `tls.model` | `string` | 호스트 기본값 | 요약에 사용할 LLM 모델 |
 
 ---
 
-## Philosophy
-
-### Why "Vibe Engineering"?
-
-Traditional engineering is about rules, types, and tests. **Vibe Engineering** adds intuition.
-
-When you're deep in flow, you _feel_ when code is right. You _sense_ when architecture is drifting. But AI doesn't have that intuition—**unless you give it tools to develop one.**
-
-AASM is that tool. It's not a linter that checks semicolons. It's a **senior architect** that reviews your _intentions_ before they become technical debt.
-
-### The Ddalkkak Philosophy
-
-This project comes from **ttalkkak-lab** (딸깍 연구소).
-
-"Ddalkkak" (딸깍) is the Korean onomatopoeia for a click—the satisfying snap of something fitting perfectly into place. That's what we're building: tools that just _click_.
-
-No configuration wrestling. No documentation spelunking. Install, and it works. That's ddalkkak.
-
----
-
-## License
+## 라이선스
 
 Apache-2.0 © [ttalkkak-lab](https://github.com/ttalkkak-lab)
 
@@ -286,8 +236,6 @@ Apache-2.0 © [ttalkkak-lab](https://github.com/ttalkkak-lab)
 
 <div align="center">
 
-**Stop drowning in context. Start vibing with your code.**
-
-[Report Bug](https://github.com/ttalkkak-lab/opencode-contexty/issues) · [Request Feature](https://github.com/ttalkkak-lab/opencode-contexty/issues)
+[버그 리포트](https://github.com/ttalkkak-lab/opencode-contexty/issues) · [기능 요청](https://github.com/ttalkkak-lab/opencode-contexty/issues)
 
 </div>

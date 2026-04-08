@@ -22,6 +22,7 @@ import { syncCompressionBlocks, buildToolIdList } from '../dcp/messages/sync';
 import { stripHallucinations } from '../dcp/messages/utils';
 import { applyPendingManualTrigger } from '../dcp/commands';
 import { stripStaleMetadata } from '../dcp/messages/inject';
+import { cacheSystemPromptTokens } from '../dcp/ui/utils';
 import type { DCPConfig, SessionState, WithParts } from '../dcp/types';
 import type { ContextyConfig } from '../types';
 
@@ -233,7 +234,7 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, _
         injectMessageIds(state, output.messages);
         applyPendingManualTrigger(state, output.messages, dcpLogger);
         stripStaleMetadata(output.messages);
-        // TODO: cacheSystemPromptTokens was present in the original codebase, but is not exported here.
+        cacheSystemPromptTokens(state, output.messages);
 
         try {
           await dcpStateAccess.persist(resolvedSessionId, state);

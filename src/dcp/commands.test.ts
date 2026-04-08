@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
   handleHelpCommand,
@@ -151,22 +154,93 @@ const addBlock = (state: SessionState, blockId: number, active = true): void => 
 };
 
 describe("DCP Commands", () => {
-  test("stats sends notification with token info", async () => {
+  test("stats sends notification with two sections", async () => {
     const state = makeState();
     addBlock(state, 1, true);
+    state.prune.messages.blocksById.get(1)!.summaryTokens = 12;
+    state.prune.messages.blocksById.get(1)!.durationMs = 2300;
+    state.prune.messages.blocksById.get(1)!.effectiveToolIds = ["call-1", "call-3"];
+    state.prune.messages.byMessageId.set("msg-1", {
+      tokenCount: 0,
+      allBlockIds: [1],
+      activeBlockIds: [1],
+    });
     const ctx = makeCtx(state);
+    const baseDir = mkdtempSync(join(tmpdir(), "dcp-stats-"));
+    const originalCwd = process.cwd();
     let captured: string | undefined;
     const origPrompt = noopClient.session.prompt;
     noopClient.session.prompt = async (opts: any) => {
       captured = opts.body.parts[0].text;
     };
 
-    await handleStatsCommand(ctx);
+    process.chdir(baseDir);
+    try {
+      await handleStatsCommand(ctx);
+    } finally {
+      process.chdir(originalCwd);
+      rmSync(baseDir, { recursive: true, force: true });
+    }
 
-    expect(captured).toContain("42");
-    expect(captured).toContain("1");
-    expect(captured).toContain("9");
-    expect(captured).toContain("2");
+    expect(captured).toContain("Compression:");
+    expect(captured).toContain("All-time:");
+    expect(captured).toContain("Tokens in:");
+    expect(captured).toContain("Tokens out:");
+    expect(captured).toContain("Ratio:");
+    expect(captured).toContain("Time:");
+    expect(captured).toContain("Tokens saved:");
+    expect(captured).toContain("Sessions:");
+
+    noopClient.session.prompt = origPrompt;
+  });
+
+  test("stats shows infinity ratio when summary tokens = 0", async () => {
+    const state = makeState();
+    const ctx = makeCtx(state);
+    const baseDir = mkdtempSync(join(tmpdir(), "dcp-stats-"));
+    const originalCwd = process.cwd();
+    let captured: string | undefined;
+    const origPrompt = noopClient.session.prompt;
+    noopClient.session.prompt = async (opts: any) => {
+      captured = opts.body.parts[0].text;
+    };
+
+    process.chdir(baseDir);
+    try {
+      await handleStatsCommand(ctx);
+    } finally {
+      process.chdir(originalCwd);
+      rmSync(baseDir, { recursive: true, force: true });
+    }
+
+    expect(captured).toContain("∞:1");
+
+    noopClient.session.prompt = origPrompt;
+  });
+
+  test("stats handles missing all-time data", async () => {
+    const state = makeState();
+    const ctx = makeCtx(state);
+    const baseDir = mkdtempSync(join(tmpdir(), "dcp-stats-"));
+    const originalCwd = process.cwd();
+    let captured: string | undefined;
+    const origPrompt = noopClient.session.prompt;
+    noopClient.session.prompt = async (opts: any) => {
+      captured = opts.body.parts[0].text;
+    };
+
+    process.chdir(baseDir);
+    try {
+      await handleStatsCommand(ctx);
+    } finally {
+      process.chdir(originalCwd);
+      rmSync(baseDir, { recursive: true, force: true });
+    }
+
+    expect(captured).toContain("All-time:");
+    expect(captured).toContain("Tokens saved:");
+    expect(captured).toContain("0 tokens");
+    expect(captured).toContain("Sessions:");
 
     noopClient.session.prompt = origPrompt;
   });
@@ -187,6 +261,137 @@ describe("DCP Commands", () => {
 
     expect(captured).toContain("2");
     expect(captured).toContain("1");
+
+    noopClient.session.prompt = origPrompt;
+  });
+
+  test("context produces token breakdown with progress bars", async () => {
+    const state = makeState();
+    state.systemPromptTokens = 500;
+    const ctx = makeCtx(state);
+    ctx.messages = [
+      {
+        info: { id: "u1", role: "user", agent: "agent" },
+        parts: [{ type: "text", text: "hello context ".repeat(80) }],
+      },
+      {
+        info: {
+          id: "a1",
+          role: "assistant",
+          tokens: {
+            input: 1000,
+            output: 200,
+            reasoning: 50,
+            cache: { read: 0, write: 0 },
+          },
+        },
+        parts: [
+          {
+            type: "tool",
+            callID: "call-1",
+            tool: "bash",
+            state: { status: "completed", input: "ls -la /tmp ".repeat(30), output: "done\n".repeat(30) },
+          },
+        ],
+      },
+    ];
+
+    let captured: string | undefined;
+    const origPrompt = noopClient.session.prompt;
+    noopClient.session.prompt = async (opts: any) => {
+      captured = opts.body.parts[0].text;
+    };
+
+    await handleContextCommand(ctx);
+
+    expect(captured).toContain("System");
+    expect(captured).toContain("User");
+    expect(captured).toContain("Assistant");
+    expect(captured).toContain("Tools");
+    expect(captured).toContain("Current context");
+    expect(captured).toContain("tokens");
+    expect(captured).toContain("█");
+    expect(captured).toContain("▓");
+    expect(captured).toContain("▒");
+    expect(captured).toContain("░");
+
+    noopClient.session.prompt = origPrompt;
+  });
+
+  test("context handles messages without token data gracefully", async () => {
+    const state = makeState();
+    const ctx = makeCtx(state);
+    ctx.messages = [
+      {
+        info: { id: "u1", role: "user" },
+        parts: [{ type: "text", text: "hello" }],
+      },
+      {
+        info: { id: "a1", role: "assistant" },
+        parts: [{ type: "text", text: "hi" }],
+      },
+    ];
+
+    let captured: string | undefined;
+    const origPrompt = noopClient.session.prompt;
+    noopClient.session.prompt = async (opts: any) => {
+      captured = opts.body.parts[0].text;
+    };
+
+    await handleContextCommand(ctx);
+
+    expect(captured).toContain("Session Context Breakdown");
+
+    noopClient.session.prompt = origPrompt;
+  });
+
+  test("context handles messages with tools", async () => {
+    const state = makeState();
+    state.systemPromptTokens = 0;
+    const ctx = makeCtx(state);
+    ctx.messages = [
+      {
+        info: { id: "u1", role: "user" },
+        parts: [{ type: "text", text: "run a tool and collect output " .repeat(40) }],
+      },
+      {
+        info: {
+          id: "a1",
+          role: "assistant",
+          tokens: {
+            input: 100,
+            output: 20,
+            reasoning: 0,
+            cache: { read: 0, write: 0 },
+          },
+        },
+        parts: [
+          {
+            type: "tool",
+            callID: "call-1",
+            tool: "bash",
+            state: { status: "completed", input: "pwd".repeat(40), output: "ok".repeat(40) },
+          },
+          {
+            type: "tool",
+            callID: "call-2",
+            tool: "bash",
+            state: { status: "completed", input: "whoami".repeat(40), output: "user".repeat(40) },
+          },
+        ],
+      },
+    ];
+
+    let captured: string | undefined;
+    const origPrompt = noopClient.session.prompt;
+    noopClient.session.prompt = async (opts: any) => {
+      captured = opts.body.parts[0].text;
+    };
+
+    await handleContextCommand(ctx);
+
+    expect(captured).toContain("Tools");
+    expect(captured).toContain("Current context");
 
     noopClient.session.prompt = origPrompt;
   });

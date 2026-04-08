@@ -92,6 +92,27 @@ export function applyCompressionState(
   const consumedBlockIds = [...new Set(params.consumedBlockIds.filter((id) => Number.isInteger(id) && id > 0))];
   const coveredRawMessageIds = getCoveredRawMessageIds(state, params.startId, params.endId);
   const coveredMessageIds = new Set<string>(coveredRawMessageIds);
+  const initiallyActive = new Set<string>();
+
+  for (const [rawId, entry] of state.prune.messages.byMessageId) {
+    if (entry.activeBlockIds.length > 0) {
+      initiallyActive.add(rawId);
+    }
+  }
+
+  const directToolIds = [...new Set(params.toolIds ?? [])];
+  const effectiveToolIdsSet = new Set<string>(directToolIds);
+
+  for (const consumedBlockId of consumedBlockIds) {
+    const consumedBlock = state.prune.messages.blocksById.get(consumedBlockId);
+    if (!consumedBlock) {
+      continue;
+    }
+
+    for (const tid of consumedBlock.effectiveToolIds) {
+      effectiveToolIdsSet.add(tid);
+    }
+  }
 
   const block: CompressionBlock = {
     blockId,
@@ -113,9 +134,9 @@ export function applyCompressionState(
     consumedBlockIds: [...consumedBlockIds],
     parentBlockIds: [],
     directMessageIds: [],
-    directToolIds: [],
+    directToolIds,
     effectiveMessageIds: [...coveredMessageIds],
-    effectiveToolIds: [],
+    effectiveToolIds: Array.from(effectiveToolIdsSet),
     createdAt: Date.now(),
     summary: params.summary,
   };
@@ -164,16 +185,32 @@ export function applyCompressionState(
   }
 
   for (const consumedBlockId of consumedBlockIds) {
-    for (const entry of state.prune.messages.byMessageId.values()) {
-      entry.activeBlockIds = entry.activeBlockIds.filter((id) => id !== consumedBlockId);
+    const consumedBlock = state.prune.messages.blocksById.get(consumedBlockId);
+    if (!consumedBlock) {
+      continue;
+    }
+
+    for (const msgId of consumedBlock.effectiveMessageIds) {
+      const entry = state.prune.messages.byMessageId.get(msgId);
+      if (entry) {
+        entry.activeBlockIds = entry.activeBlockIds.filter((id) => id !== consumedBlockId);
+      }
     }
   }
 
   let compressedTokens = 0;
+  const directMessageIds: string[] = [];
   for (const rawId of coveredRawMessageIds) {
-    compressedTokens += state.prune.messages.byMessageId.get(rawId)?.tokenCount ?? 0;
+    const wasActive = initiallyActive.has(rawId);
+    const entry = state.prune.messages.byMessageId.get(rawId);
+    const isNowActive = (entry?.activeBlockIds.length ?? 0) > 0;
+    if (isNowActive && !wasActive) {
+      compressedTokens += entry?.tokenCount ?? 0;
+      directMessageIds.push(rawId);
+    }
   }
 
+  block.directMessageIds = directMessageIds;
   block.compressedTokens = compressedTokens;
   state.stats.pruneTokenCounter += compressedTokens;
   state.stats.totalPruneTokens += state.stats.pruneTokenCounter;

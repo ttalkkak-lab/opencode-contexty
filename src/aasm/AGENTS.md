@@ -15,7 +15,6 @@ The "Active Agent" supervision layer that validates user intent and enforces arc
 
 ## CONVENTIONS
 - **Intent-First**: Every user message is analyzed for intent before execution.
-- **Confidence Threshold**: Actions below `0.7` confidence trigger a confirmation dialog.
 - **Non-Blocking**: Linter runs in parallel with response generation where possible.
 
 ## ANTI-PATTERNS

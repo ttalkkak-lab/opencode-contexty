@@ -17,7 +17,6 @@ function createClient() {
 
 function createActiveAasm(validateIntent: (prompt: string, sessionID: string) => Promise<any>) {
   return {
-    isEnabled: () => true,
     getMode: () => 'active',
     getModelName: () => 'test-model',
     validateIntent: mock(validateIntent),
@@ -34,8 +33,7 @@ function createOutput(text: string) {
 describe('createAASMChatHook', () => {
   it('does not intercept inline /agent-review command', async () => {
     const aasm = {
-      isEnabled: () => true,
-      getMode: () => 'active',
+        getMode: () => 'active',
       getModelName: () => 'test-model',
       validateIntent: mock(async () => ({
         approved: true,
@@ -65,8 +63,7 @@ describe('createAASMChatHook', () => {
 
   it('intercepts inline /aasm review parser form and returns report immediately', async () => {
     const aasm = {
-      isEnabled: () => true,
-      getMode: () => 'active',
+        getMode: () => 'active',
       getModelName: () => 'test-model',
       validateIntent: mock(async () => ({
         approved: true,
@@ -99,8 +96,7 @@ describe('createAASMChatHook', () => {
 
   it('intercepts inline /aasm status command and handles mode immediately', async () => {
     const aasm = {
-      isEnabled: () => true,
-      getMode: () => 'active',
+        getMode: () => 'active',
       getModelName: () => 'test-model',
       validateIntent: mock(async () => ({
         approved: true,
@@ -131,8 +127,7 @@ describe('createAASMChatHook', () => {
 
   it('ignores legacy injected decision helper prompt text', async () => {
     const aasm = {
-      isEnabled: () => true,
-      getMode: () => 'active',
+        getMode: () => 'active',
       getModelName: () => 'test-model',
       validateIntent: mock(async () => ({
         approved: true,
@@ -209,8 +204,7 @@ describe('createAASMChatHook', () => {
       .mockImplementationOnce(() => secondValidation);
 
     const aasm = {
-      isEnabled: () => true,
-      getMode: () => 'active',
+        getMode: () => 'active',
       getModelName: () => 'test-model',
       validateIntent,
     };
@@ -269,8 +263,7 @@ describe('createAASMChatHook', () => {
 
   it('does not block next prompt while keep/revert is pending', async () => {
     const aasm = {
-      isEnabled: () => true,
-      getMode: () => 'active',
+        getMode: () => 'active',
       getModelName: () => 'test-model',
       validateIntent: mock(async () => ({
         approved: true,
@@ -303,8 +296,7 @@ describe('createAASMChatHook', () => {
 
   it('reverts generated assistant message when user selects 되돌리기', async () => {
     const aasm = {
-      isEnabled: () => true,
-      getMode: () => 'active',
+        getMode: () => 'active',
       getModelName: () => 'test-model',
       validateIntent: mock(async () => ({
         approved: true,

@@ -89,14 +89,8 @@ export interface ContextyConfig {
   dcp?: DCPConfig;
   /** AASM settings */
   aasm: {
-    /** Whether AASM is globally enabled */
-    enabled: boolean;
     /** Current agent mode */
     mode: AgentMode;
-    /** Enable architecture linting */
-    enableLinting: boolean;
-    /** Confidence threshold for suggestions */
-    confidenceThreshold: number;
     /** LLM model for linting (optional) */
     model?: string;
   };

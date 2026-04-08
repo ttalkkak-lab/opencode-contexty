@@ -13,6 +13,10 @@
       "description": "Check AASM status",
       "template": "Call the 'aasm' tool with argument { \"mode\": \"status\" }."
     },
+    "ctx": {
+      "description": "Show context window usage stats",
+      "template": ""
+    },
     "agent-review": {
       "description": "Generate AASM anti-pattern review report across sessions",
       "template": "Immediately call the 'aasm' tool with argument { \"mode\": \"review\" }. If the user supplied a numeric argument, include it as \"limit\" (5-100). Do not ask planning questions."

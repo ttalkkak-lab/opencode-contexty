@@ -1,7 +1,6 @@
 import { deactivateBlock } from './compress/state';
-import { getActiveSummaryTokenUsage } from './state/utils';
-import { getCurrentParams, getTotalToolTokens } from './token-utils';
-import { getLastUserMessage, isIgnoredUserMessage, parseBlockRef } from './message-ids';
+import { getCurrentParams, getTotalToolTokens, countTokens, extractCompletedToolOutput } from './token-utils';
+import { isIgnoredUserMessage, parseBlockRef } from './message-ids';
 import { isMessageCompacted } from './state/utils';
 import {
   isToolNameProtected,
@@ -15,7 +14,9 @@ import {
   resolveCompressionTarget,
   formatAvailableBlocksMessage,
 } from './ui/format';
-import type { DCPConfig, SessionState, WithParts } from './types';
+import { formatCompressionRatio, formatCompressionTime } from './ui/utils';
+import { loadAllSessionStats } from './state/persistence';
+import type { AggregatedStats, DCPConfig, SessionState, WithParts, TokenBreakdown } from './types';
 import type { DCPLogger } from './logger';
 
 // ---------------------------------------------------------------------------
@@ -99,75 +100,270 @@ export async function handleHelpCommand(ctx: CommandContext): Promise<void> {
 // ---------------------------------------------------------------------------
 
 function formatStatsMessage(
-  totalPruneTokens: number,
-  activeBlocks: number,
-  summaryTokens: number,
-  prunedToolCount: number
+  sessionTokens: number,
+  sessionSummaryTokens: number,
+  sessionDurationMs: number,
+  sessionMessages: number,
+  prunedToolIds: Set<string>,
+  allTime: AggregatedStats
 ): string {
   const lines: string[] = [];
-  lines.push('╭───────────────────────────────────────────────────────────╮');
-  lines.push('│                    DCP Statistics                         │');
-  lines.push('╰───────────────────────────────────────────────────────────╯');
+  lines.push('Compression:');
+  lines.push(`  Tokens in:       ${formatTokenCount(sessionTokens)}`);
+  lines.push(`  Tokens out:      ${formatTokenCount(sessionSummaryTokens)}`);
+  lines.push(`  Ratio:           ${formatCompressionRatio(sessionTokens, sessionSummaryTokens)}`);
+  lines.push(`  Time:            ${formatCompressionTime(sessionDurationMs)}`);
+  lines.push(`  Messages:        ${sessionMessages}`);
+  lines.push(`  Tools:           ${prunedToolIds.size}`);
   lines.push('');
-  lines.push(`  Total tokens pruned:  ~${formatTokenCount(totalPruneTokens)}`);
-  lines.push(`  Active blocks:        ${activeBlocks}`);
-  lines.push(`  Summary tokens:       ~${formatTokenCount(summaryTokens)}`);
-  lines.push(`  Tools pruned:         ${prunedToolCount}`);
+  lines.push('All-time:');
+  lines.push(`  Tokens saved:    ${formatTokenCount(allTime.totalTokens)}`);
+  lines.push(`  Tools pruned:    ${allTime.totalTools}`);
+  lines.push(`  Messages pruned: ${allTime.totalMessages}`);
+  lines.push(`  Sessions:        ${allTime.sessionCount}`);
   lines.push('');
   return lines.join('\n');
 }
 
 export async function handleStatsCommand(ctx: CommandContext): Promise<void> {
   const { client, state, logger, sessionId, messages } = ctx;
-  const totalPruneTokens = state.stats.totalPruneTokens;
-  const activeBlocks = state.prune.messages.activeBlockIds.size;
-  const summaryTokens = getActiveSummaryTokenUsage(state);
-  const prunedToolCount = state.prune.tools.size;
+  const sessionTokens = state.stats.totalPruneTokens;
+  const activeTargets = getActiveCompressionTargets(state.prune.messages);
+  let sessionSummaryTokens = 0;
+  for (const blockId of state.prune.messages.activeBlockIds) {
+    const block = state.prune.messages.blocksById.get(blockId);
+    if (!block) continue;
+    sessionSummaryTokens += block.summaryTokens;
+  }
+  const sessionDurationMs = activeTargets.reduce((total, target) => total + target.durationMs, 0);
+  const prunedToolIds = new Set(state.prune.tools.keys());
+
+  for (const blockId of state.prune.messages.activeBlockIds) {
+    const block = state.prune.messages.blocksById.get(blockId);
+    if (!block) continue;
+    for (const toolId of block.effectiveToolIds) {
+      prunedToolIds.add(toolId);
+    }
+  }
+
+  let sessionMessages = 0;
+  for (const entry of state.prune.messages.byMessageId.values()) {
+    if (entry.activeBlockIds.length > 0) {
+      sessionMessages += 1;
+    }
+  }
+
+  const allTime = loadAllSessionStats(process.cwd());
 
   const message = formatStatsMessage(
-    totalPruneTokens,
-    activeBlocks,
-    summaryTokens,
-    prunedToolCount
+    sessionTokens,
+    sessionSummaryTokens,
+    sessionDurationMs,
+    sessionMessages,
+    prunedToolIds,
+    allTime
   );
   const params = getCurrentParams(state, messages, logger);
   await sendIgnoredMessage(client, sessionId, message, params, logger);
-  logger.info('Stats command executed', { totalPruneTokens, activeBlocks, summaryTokens });
+  logger.info('Stats command executed', {
+    sessionTokens,
+    sessionSummaryTokens,
+    sessionDurationMs,
+    sessionMessages,
+    prunedToolCount: prunedToolIds.size,
+    allTime,
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------
 
+function stringifyToolValue(value: unknown): string {
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
+function getMessageTextTokenCount(message: WithParts): number {
+  const texts: string[] = [];
+
+  for (const part of message.parts ?? []) {
+    if (part.type === 'text' && typeof part.text === 'string') {
+      texts.push(part.text);
+    }
+  }
+
+  return texts.length > 0 ? countTokens(texts.join(' ')) : 0;
+}
+
+function getFirstUserMessageTextTokenCount(messages: WithParts[]): number {
+  for (const message of messages) {
+    if ((message.info as any).role !== 'user' || isIgnoredUserMessage(message)) {
+      continue;
+    }
+
+    return getMessageTextTokenCount(message);
+  }
+
+  return 0;
+}
+
+function getAssistantTotalTokens(message: WithParts): number {
+  const tokens = (message.info as any).tokens;
+  if (!tokens || tokens.input === undefined) {
+    return 0;
+  }
+
+  return (
+    (tokens.input ?? 0) +
+    (tokens.output ?? 0) +
+    (tokens.reasoning ?? 0) +
+    (tokens.cache?.read ?? 0) +
+    (tokens.cache?.write ?? 0)
+  );
+}
+
+export function analyzeTokens(
+  state: SessionState,
+  messages: WithParts[],
+  params: ReturnType<typeof getCurrentParams>
+): TokenBreakdown {
+  void params;
+
+  let total = 0;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if ((message.info as any).role !== 'assistant') {
+      continue;
+    }
+
+    const assistantTotal = getAssistantTotalTokens(message);
+    if (assistantTotal > 0) {
+      total = assistantTotal;
+      break;
+    }
+  }
+
+  let system = state.systemPromptTokens;
+  if (system === undefined) {
+    const firstAssistant = messages.find((message) => {
+      const tokens = (message.info as any).tokens;
+      return (message.info as any).role === 'assistant' && tokens?.input !== undefined;
+    });
+
+    if (firstAssistant) {
+      const tokens = (firstAssistant.info as any).tokens;
+      const firstInputTokens =
+        (tokens.input ?? 0) + (tokens.cache?.read ?? 0) + (tokens.cache?.write ?? 0);
+      system = Math.max(0, firstInputTokens - getFirstUserMessageTextTokenCount(messages));
+    } else {
+      system = 0;
+    }
+  }
+
+  let user = 0;
+  let tools = 0;
+  let toolCount = 0;
+  let toolsInContextCount = 0;
+
+  for (const message of messages) {
+    if (isIgnoredUserMessage(message)) {
+      continue;
+    }
+
+    const role = (message.info as any).role;
+    if (role === 'user') {
+      user += getMessageTextTokenCount(message);
+      continue;
+    }
+
+    if (role !== 'assistant' || isMessageCompacted(state, message)) {
+      continue;
+    }
+
+    for (const part of message.parts ?? []) {
+      if (part.type !== 'tool') {
+        continue;
+      }
+
+      toolsInContextCount += 1;
+      const toolState = part.state as any;
+      const inputText = toolState?.input === undefined ? '' : stringifyToolValue(toolState.input);
+      const outputText = extractCompletedToolOutput(part);
+      const tokenCount = countTokens(inputText) + (outputText ? countTokens(outputText) : 0);
+
+      if (tokenCount <= 0) {
+        continue;
+      }
+
+      tools += tokenCount;
+      toolCount += 1;
+    }
+  }
+
+  const assistant = Math.max(0, total - system - user - tools);
+  const prunedTokens = state.stats.totalPruneTokens;
+  const prunedToolCount = state.prune.tools.size;
+  const prunedMessageCount = Array.from(state.prune.messages.byMessageId.values()).filter(
+    (entry) => entry.activeBlockIds.length > 0
+  ).length;
+
+  return {
+    system,
+    user,
+    assistant,
+    tools,
+    toolCount,
+    toolsInContextCount,
+    prunedTokens,
+    prunedToolCount,
+    prunedMessageCount,
+    total,
+  };
+}
+
 function formatContextMessage(
-  totalMessages: number,
-  compactedCount: number,
-  activeBlocks: number
+  state: SessionState,
+  messages: WithParts[],
+  params: ReturnType<typeof getCurrentParams>
 ): string {
+  const breakdown = analyzeTokens(state, messages, params);
+  const total = breakdown.total > 0 ? breakdown.total : breakdown.system + breakdown.user + breakdown.assistant + breakdown.tools;
+  const rows: Array<[string, number, string]> = [
+    ['System', breakdown.system, '█'],
+    ['User', breakdown.user, '▓'],
+    ['Assistant', breakdown.assistant, '▒'],
+    ['Tools', breakdown.tools, '░'],
+  ];
+
   const lines: string[] = [];
-  lines.push('╭───────────────────────────────────────────────────────────╮');
-  lines.push('│                  DCP Context Analysis                     │');
-  lines.push('╰───────────────────────────────────────────────────────────╯');
+  lines.push('Session Context Breakdown:');
   lines.push('');
-  lines.push(`  Total messages:       ${totalMessages}`);
-  lines.push(`  Compacted messages:   ${compactedCount}`);
-  lines.push(`  Active blocks:        ${activeBlocks}`);
+
+  for (const [label, value, fillChar] of rows) {
+    const pct = total > 0 ? (value / total) * 100 : 0;
+    const filled = total > 0 ? Math.round((value / total) * 30) : 0;
+    const bar = `${fillChar.repeat(Math.max(0, Math.min(30, filled)))}${'░'.repeat(Math.max(0, 30 - filled))}`;
+    lines.push(`  ${label.padEnd(10)}│${bar}│ ${pct.toFixed(1)}%  ${formatTokenCount(value)}`);
+  }
+
+  if (breakdown.prunedTokens > 0) {
+    lines.push('');
+    lines.push(
+      `Pruned: ${formatTokenCount(breakdown.prunedTokens)} (${breakdown.prunedToolCount} tools, ${breakdown.prunedMessageCount} messages)`
+    );
+  }
+
+  lines.push(`Current context: ~${formatTokenCount(total, true)} tokens`);
   lines.push('');
   return lines.join('\n');
 }
 
 export async function handleContextCommand(ctx: CommandContext): Promise<void> {
   const { client, state, logger, sessionId, messages } = ctx;
-  const totalMessages = state.prune.messages.byMessageId.size;
-  const compactedCount = Array.from(state.prune.messages.byMessageId.values()).filter(
-    (entry) => entry.activeBlockIds.length > 0
-  ).length;
-  const activeBlocks = state.prune.messages.activeBlockIds.size;
-
-  const message = formatContextMessage(totalMessages, compactedCount, activeBlocks);
   const params = getCurrentParams(state, messages, logger);
+  const message = formatContextMessage(state, messages, params);
   await sendIgnoredMessage(client, sessionId, message, params, logger);
-  logger.info('Context command executed', { totalMessages, compactedCount, activeBlocks });
+  logger.info('Context command executed');
 }
 
 // ---------------------------------------------------------------------------

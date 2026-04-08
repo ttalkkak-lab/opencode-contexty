@@ -492,13 +492,7 @@ export function createAASMChatHook(aasm: AASMModule, client: OpencodeClient, dir
       return;
     }
 
-    if (!aasm.isEnabled()) {
-      return;
-    }
-
-    const mode = aasm.getMode();
-
-    if (mode === 'passive') return;
+    if (aasm.getMode() === 'passive') return;
 
     const token = nextAnalysisToken(input.sessionID);
     void startBackgroundAnalysis(

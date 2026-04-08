@@ -3,19 +3,19 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { Logger } from './utils';
 import { AASMModule } from './aasm';
-import { ACPMModule } from './acpm';
 import {
   createAASMChatHook,
   createHSCMMTransformHook,
+  createCommandHook,
   createPermissionAskHook,
   createAASMReviewCommandHook,
   createBanCommandHook,
   createSystemTransformHook as createACPMSystemTransformHook,
-  createTLSCommandHook,
   createToolExecuteBeforeHook,
   createToolExecuteAfterHook,
 } from './hooks';
 import { createAgentTool, createAcpmTool } from './tools';
+import { ACPMModule } from './acpm';
 import { ContextyConfig } from './types';
 import { TLSModule } from './tls';
 import { createLogger as createDCPLogger } from './dcp/logger';
@@ -36,6 +36,7 @@ import {
 } from './dcp/commands';
 import { handleCompressionEvent } from './dcp/event-handler';
 import { renderSystemPrompt } from './dcp/prompts';
+import { stripHallucinationsFromString } from './dcp/messages/utils';
 import type { SessionState } from './dcp/types';
 import { readPruningState, writePruningState } from './hscmm/storage';
 import { sessionTracker } from './core/sessionTracker';
@@ -117,15 +118,11 @@ function getDcpSessionIdFromEvent(input: { event: unknown }): string | null {
 export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
   const { client, directory } = pluginInput;
 
-  // Initialize Logger for server-side logging
   Logger.setClient(client);
 
   const defaultConfig: ContextyConfig = {
     aasm: {
-      enabled: true,
-      mode: 'active',
-      enableLinting: true,
-      confidenceThreshold: 0.7,
+      mode: 'passive',
     },
     tls: {
       enabled: true,
@@ -142,7 +139,6 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
       config = {
         ...defaultConfig,
         aasm: { ...defaultConfig.aasm, ...userConfig.aasm },
-        // Preserve other optional configs if present
         hscmm: userConfig.hscmm,
         acpm: userConfig.acpm,
         tls: userConfig.tls,
@@ -279,7 +275,7 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
     });
   }
 
-  const tlsCommandHook = createTLSCommandHook(tls, pluginInput);
+  const tlsCommandHook = createCommandHook(tls, pluginInput);
   const aasmReviewCommandHook = createAASMReviewCommandHook(aasm);
   const banCommandHook = createBanCommandHook(pluginInput);
   const acpmSystemTransformHook = createACPMSystemTransformHook(acpm);
@@ -390,6 +386,13 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
       undefined,
       dcpEnabled ? { get: getDcpState, persist: persistDcpState } : undefined
     ),
+    ...(dcpEnabled
+      ? {
+          'chat.text.complete': async (_input: any, output: { text: string }) => {
+            output.text = stripHallucinationsFromString(output.text);
+          },
+        }
+      : {}),
     'tool.execute.before': createToolExecuteBeforeHook(acpm, client),
     'tool.execute.after': createToolExecuteAfterHook(acpm),
     'permission.ask': createPermissionAskHook(acpm),

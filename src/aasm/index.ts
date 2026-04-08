@@ -143,20 +143,6 @@ export class AASMModule {
 
     const intent = this.analyzer.analyzeIntent(userPrompt);
 
-    if (!this.config.enableLinting) {
-      return {
-        approved: true,
-        intent,
-        lintResult: {
-          valid: true,
-          severity: 'advisory',
-          issues: [],
-          suggestions: [],
-          confidence: 1.0,
-        },
-      };
-    }
-
     if (this.llmLinter && this.client && sessionID) {
       try {
         const lintResult = await this.llmLinter.lint(userPrompt, sessionID, intent);
@@ -191,10 +177,6 @@ export class AASMModule {
         confidence: 1.0,
       },
     };
-  }
-
-  isEnabled(): boolean {
-    return this.config.enabled;
   }
 
   async setMode(mode: AgentMode): Promise<void> {
@@ -308,7 +290,7 @@ export class AASMModule {
       ].join('\n');
     }
 
-    if (this.config.enableLinting && this.subsessionHelper) {
+    if (this.subsessionHelper) {
       try {
         const prompt = buildReviewPrompt(userPrompts, {
           requestedSessionID: sessionID,
@@ -341,7 +323,7 @@ export class AASMModule {
           confidence: 1,
         };
 
-        if (!this.config.enableLinting || !this.llmLinter) {
+        if (!this.llmLinter) {
           return {
             ...entry,
             intent,
@@ -478,18 +460,13 @@ export class AASMModule {
         return '✅ AASM mode set to: PASSIVE (No architecture linting)';
 
       case 'status': {
-        const isEffectiveLinting = this.mode === 'active' && this.config.enableLinting;
-        const statusMsg = `Mode: ${this.mode.toUpperCase()}\nLinting: ${
-          isEffectiveLinting ? 'ON' : 'OFF'
-        }${this.mode === 'passive' ? ' (Passive Mode)' : ''}`;
+        const statusMsg = `Mode: ${this.mode.toUpperCase()}`;
 
         await showToast('AASM Status', statusMsg, 'info');
         return `
 AASM Status:
 - Mode: ${this.mode.toUpperCase()}
-- Linting Enabled: ${this.config.enableLinting ? 'Yes' : 'No'}
-- Effective State: ${isEffectiveLinting ? 'ACTIVE' : 'DISABLED'}
-- Confidence Threshold: ${this.config.confidenceThreshold}
+- Effective State: ${this.mode === 'active' ? 'ACTIVE' : 'PASSIVE'}
 `;
       }
 

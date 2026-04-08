@@ -202,3 +202,23 @@ export interface DCPConfig {
     purgeErrors: PurgeErrors;
   };
 }
+
+export interface TokenBreakdown {
+  system: number;
+  user: number;
+  assistant: number;
+  tools: number;
+  toolCount: number;
+  toolsInContextCount: number;
+  prunedTokens: number;
+  prunedToolCount: number;
+  prunedMessageCount: number;
+  total: number;
+}
+
+export interface AggregatedStats {
+  totalTokens: number;
+  totalTools: number;
+  totalMessages: number;
+  sessionCount: number;
+}

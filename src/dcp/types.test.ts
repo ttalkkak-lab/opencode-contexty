@@ -146,10 +146,7 @@ describe("dcp types", () => {
         enabled: true,
       },
       aasm: {
-        enabled: true,
         mode: "active",
-        enableLinting: true,
-        confidenceThreshold: 0.8,
       },
     };
 
