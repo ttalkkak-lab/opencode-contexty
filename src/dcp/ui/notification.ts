@@ -57,11 +57,11 @@ export async function sendIgnoredMessage(
 }
 
 export function formatTokenCount(count: number, abbreviate?: boolean): string {
-  if (abbreviate && count >= 1000) {
-    const value = count / 1000;
-    return `${value % 1 === 0 ? value.toFixed(0) : value.toFixed(1)}k`;
+  const suffix = abbreviate ? "" : " tokens";
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1)}K`.replace(".0K", "K") + suffix;
   }
-  return count.toLocaleString();
+  return count.toString() + suffix;
 }
 
 export function formatPrunedItemsList(
