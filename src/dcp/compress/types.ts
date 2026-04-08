@@ -74,5 +74,6 @@ export interface CompressionApplyInput {
   compressMessageId: string;
   compressCallId?: string;
   consumedBlockIds: number[];
+  toolIds?: string[];
   messageTokenById: Map<string, number>;
 }
