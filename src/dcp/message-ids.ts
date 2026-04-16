@@ -131,12 +131,15 @@ export function isMessageWithInfo(message: unknown): message is WithParts {
     return false;
   }
 
-  return (
-    typeof info.id === "string" &&
-    info.id.length > 0 &&
-    typeof info.role === "string" &&
-    info.role.length > 0
-  );
+  if (typeof info.id !== "string" || !info.id.length) {
+    return false;
+  }
+
+  if (typeof info.role !== "string" || !info.role.length) {
+    return false;
+  }
+
+  return true;
 }
 
 export function filterProcessableMessages(messages: unknown): WithParts[] {
@@ -192,7 +195,7 @@ export function assignMessageRefs(state: SessionState, messages: WithParts[]): n
   let skippedSubAgentPrompt = false;
   const messageIds: any = (state as any).messageIds;
 
-  for (const message of messages) {
+  for (const [index, message] of messages.entries()) {
     if (isIgnoredUserMessage(message)) {
       continue;
     }
@@ -204,20 +207,22 @@ export function assignMessageRefs(state: SessionState, messages: WithParts[]): n
 
     const rawMessageId = (message as any).info.id;
     if (typeof rawMessageId !== "string" || rawMessageId.length === 0) {
-      continue;
+      (message as any).info.id = `msg_${index}`;
     }
 
-    const existingRef = messageIds.byRawId.get(rawMessageId);
+    const normalizedRawMessageId = (message as any).info.id;
+
+    const existingRef = messageIds.byRawId.get(normalizedRawMessageId);
     if (existingRef) {
-      if (messageIds.byRef.get(existingRef) !== rawMessageId) {
-        messageIds.byRef.set(existingRef, rawMessageId);
+      if (messageIds.byRef.get(existingRef) !== normalizedRawMessageId) {
+        messageIds.byRef.set(existingRef, normalizedRawMessageId);
       }
       continue;
     }
 
     const ref = allocateNextMessageRef(state);
-    messageIds.byRawId.set(rawMessageId, ref);
-    messageIds.byRef.set(ref, rawMessageId);
+    messageIds.byRawId.set(normalizedRawMessageId, ref);
+    messageIds.byRef.set(ref, normalizedRawMessageId);
     assigned++;
   }
 

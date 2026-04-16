@@ -21,7 +21,7 @@ export type ToolStateCompleted = {
     time: {
       start: number;
       end: number;
-      compacted?: number;
+      compacted?: boolean;
     };
 };
 

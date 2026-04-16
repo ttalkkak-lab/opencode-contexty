@@ -18,6 +18,8 @@ import {
   type ToolLogBlacklist,
 } from './storage';
 
+import type { ToolStateCompleted } from './storage';
+
 function makeTestToolPart(overrides?: Partial<ToolPart>): ToolPart {
   return {
     id: 'test-part-1',
@@ -35,6 +37,16 @@ function makeTestToolPart(overrides?: Partial<ToolPart>): ToolPart {
       time: { start: Date.now(), end: Date.now() },
     },
     ...overrides,
+  };
+}
+
+function makeCompactedToolPart(overrides?: Partial<ToolPart>): ToolPart {
+  return {
+    ...makeTestToolPart(overrides),
+    state: {
+      ...makeTestToolPart().state,
+      time: { start: Date.now(), end: Date.now(), compacted: true },
+    } as ToolStateCompleted,
   };
 }
 
@@ -93,6 +105,18 @@ describe('hscmm storage', () => {
     );
     expect(written).toEqual(spec);
     expect(readToolLog(tempDir, 'ses_test')).resolves.toEqual(spec);
+  });
+
+  it('preserves compacted boolean in tool log round-trip', async () => {
+    const spec: ToolLogSpec = { parts: [makeCompactedToolPart()] };
+
+    await writeToolLog(tempDir, 'ses_test', spec);
+
+    expect(readToolLog(tempDir, 'ses_test')).resolves.toEqual(spec);
+    const written = JSON.parse(
+      await fs.readFile(path.join(tempDir, '.contexty', 'sessions', 'ses_test', 'tool-parts.json'), 'utf8')
+    );
+    expect(written.parts[0].state.time.compacted).toBe(true);
   });
 
   it('creates the .contexty directory when writing tool logs', async () => {

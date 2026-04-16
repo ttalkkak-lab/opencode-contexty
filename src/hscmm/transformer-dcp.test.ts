@@ -137,6 +137,16 @@ function makeToolPart(id: string, messageID: string, output = 'tool output') {
   };
 }
 
+function makeCompressionState(overrides: Partial<SessionState['prune']['messages']> = {}): SessionState {
+  const state = makeState('ses_test');
+  state.prune.messages = {
+    ...state.prune.messages,
+    ...overrides,
+  };
+
+  return state;
+}
+
 function makeDuplicateToolMessage(id: string, sessionID = 'ses_test') {
   const tool = {
     id: `tool-${id}`,
@@ -277,5 +287,217 @@ describe('HSCMM transformer with DCP', () => {
     expect(taggedTexts.some((text) => text.includes('[DCP context-limit nudge]'))).toBe(true);
     expect(taggedTexts.some((text) => text.includes('<dcp-message-id>m0001</dcp-message-id>'))).toBe(true);
     expect(taggedTexts.some((text) => text.includes('<dcp-message-id>m0002</dcp-message-id>'))).toBe(true);
+  });
+
+  describe('compacted tool parts', () => {
+    it('compacted tool parts are not re-injected', async () => {
+      const state = makeCompressionState();
+      state.prune.messages.blocksById.set(1, {
+        blockId: 1,
+        runId: 1,
+        active: true,
+        deactivatedByUser: false,
+        compressedTokens: 10,
+        summaryTokens: 5,
+        durationMs: 1,
+        topic: 'Compacted block',
+        startId: 'msg-1',
+        endId: 'msg-1',
+        anchorMessageId: 'msg-1',
+        compressMessageId: 'msg-1',
+        includedBlockIds: [],
+        consumedBlockIds: [],
+        parentBlockIds: [],
+        directMessageIds: ['msg-1'],
+        directToolIds: ['tool-1'],
+        effectiveMessageIds: ['msg-1'],
+        effectiveToolIds: ['tool-1'],
+        createdAt: Date.now(),
+        summary: 'summary',
+      });
+      state.prune.messages.activeBlockIds.add(1);
+      state.prune.messages.byMessageId.set('msg-1', { tokenCount: 1, allBlockIds: [1], activeBlockIds: [1] });
+      await writePruningState(tempDir, 'ses_test', state);
+      await fs.writeFile(
+        path.join(tempDir, 'contexty.config.json'),
+        JSON.stringify({ dcp: makeConfig() }),
+        'utf8'
+      );
+
+      hook = createHSCMMTransformHook(tempDir, undefined, {
+        session: { list: async () => ({ data: [{ id: 'ses_test' }] }) },
+      });
+
+      const output: { messages: TestMessage[] } = {
+        messages: [
+          {
+            info: { id: 'msg-1', role: 'assistant', sessionID: 'ses_test', time: { created: Date.now() } },
+            parts: [makeToolPart('tool-1', 'msg-1')],
+          },
+        ],
+      };
+
+      await hook({}, output as any);
+
+      expect(output.messages[0].parts.some((part) => part.type === 'tool')).toBe(false);
+    });
+
+    it('non-compacted tools are still re-injected', async () => {
+      const state = makeCompressionState();
+      state.prune.messages.blocksById.set(1, {
+        blockId: 1,
+        runId: 1,
+        active: true,
+        deactivatedByUser: false,
+        compressedTokens: 10,
+        summaryTokens: 5,
+        durationMs: 1,
+        topic: 'Compacted block',
+        startId: 'msg-1',
+        endId: 'msg-1',
+        anchorMessageId: 'msg-1',
+        compressMessageId: 'msg-1',
+        includedBlockIds: [],
+        consumedBlockIds: [],
+        parentBlockIds: [],
+        directMessageIds: ['msg-1'],
+        directToolIds: ['tool-1'],
+        effectiveMessageIds: ['msg-1'],
+        effectiveToolIds: ['tool-1'],
+        createdAt: Date.now(),
+        summary: 'summary',
+      });
+      state.prune.messages.activeBlockIds.add(1);
+      state.prune.messages.byMessageId.set('msg-1', { tokenCount: 1, allBlockIds: [1], activeBlockIds: [1] });
+      await writePruningState(tempDir, 'ses_test', state);
+      await fs.writeFile(
+        path.join(tempDir, 'contexty.config.json'),
+        JSON.stringify({ dcp: makeConfig() }),
+        'utf8'
+      );
+
+      hook = createHSCMMTransformHook(tempDir, undefined, {
+        session: { list: async () => ({ data: [{ id: 'ses_test' }] }) },
+      });
+
+      const output: { messages: TestMessage[] } = {
+        messages: [
+          {
+            info: { id: 'msg-2', role: 'assistant', sessionID: 'ses_test', time: { created: Date.now() } },
+            parts: [makeToolPart('tool-2', 'msg-2')],
+          },
+        ],
+      };
+
+      await hook({}, output as any);
+
+      expect(output.messages[0].parts.some((part) => part.type === 'tool')).toBe(true);
+      expect(output.messages[0].parts.some((part) => part.type === 'tool' && (part as any).metadata?.contexty?.source === 'tool-log')).toBe(true);
+    });
+
+    it('compacted flag persists in tool-parts.json', async () => {
+      const state = makeCompressionState();
+      state.prune.messages.blocksById.set(1, {
+        blockId: 1,
+        runId: 1,
+        active: true,
+        deactivatedByUser: false,
+        compressedTokens: 10,
+        summaryTokens: 5,
+        durationMs: 1,
+        topic: 'Compacted block',
+        startId: 'msg-1',
+        endId: 'msg-1',
+        anchorMessageId: 'msg-1',
+        compressMessageId: 'msg-1',
+        includedBlockIds: [],
+        consumedBlockIds: [],
+        parentBlockIds: [],
+        directMessageIds: ['msg-1'],
+        directToolIds: ['tool-1'],
+        effectiveMessageIds: ['msg-1'],
+        effectiveToolIds: ['tool-1'],
+        createdAt: Date.now(),
+        summary: 'summary',
+      });
+      state.prune.messages.activeBlockIds.add(1);
+      state.prune.messages.byMessageId.set('msg-1', { tokenCount: 1, allBlockIds: [1], activeBlockIds: [1] });
+      await writePruningState(tempDir, 'ses_test', state);
+      await fs.writeFile(
+        path.join(tempDir, 'contexty.config.json'),
+        JSON.stringify({ dcp: makeConfig() }),
+        'utf8'
+      );
+
+      hook = createHSCMMTransformHook(tempDir, undefined, {
+        session: { list: async () => ({ data: [{ id: 'ses_test' }] }) },
+      });
+
+      const output: { messages: TestMessage[] } = {
+        messages: [
+          {
+            info: { id: 'msg-1', role: 'assistant', sessionID: 'ses_test', time: { created: Date.now() } },
+            parts: [makeToolPart('tool-1', 'msg-1')],
+          },
+        ],
+      };
+
+      await hook({}, output as any);
+
+      const persisted = JSON.parse(await fs.readFile(path.join(tempDir, '.contexty', 'sessions', 'ses_test', 'tool-parts.json'), 'utf8')) as any;
+      expect(persisted.parts[0].state.time.compacted).toBe(true);
+    });
+
+    it('decompressed block restores tool part re-injection', async () => {
+      const state = makeCompressionState();
+      state.prune.messages.blocksById.set(1, {
+        blockId: 1,
+        runId: 1,
+        active: false,
+        deactivatedByUser: false,
+        compressedTokens: 10,
+        summaryTokens: 5,
+        durationMs: 1,
+        topic: 'Compacted block',
+        startId: 'msg-1',
+        endId: 'msg-1',
+        anchorMessageId: 'msg-1',
+        compressMessageId: 'msg-1',
+        includedBlockIds: [],
+        consumedBlockIds: [],
+        parentBlockIds: [],
+        directMessageIds: ['msg-1'],
+        directToolIds: ['tool-1'],
+        effectiveMessageIds: ['msg-1'],
+        effectiveToolIds: ['tool-1'],
+        createdAt: Date.now(),
+        summary: 'summary',
+      });
+      state.prune.messages.activeBlockIds.delete(1);
+      state.prune.messages.byMessageId.set('msg-1', { tokenCount: 1, allBlockIds: [1], activeBlockIds: [] });
+      await writePruningState(tempDir, 'ses_test', state);
+      await fs.writeFile(
+        path.join(tempDir, 'contexty.config.json'),
+        JSON.stringify({ dcp: makeConfig() }),
+        'utf8'
+      );
+
+      hook = createHSCMMTransformHook(tempDir, undefined, {
+        session: { list: async () => ({ data: [{ id: 'ses_test' }] }) },
+      });
+
+      const output: { messages: TestMessage[] } = {
+        messages: [
+          {
+            info: { id: 'msg-1', role: 'assistant', sessionID: 'ses_test', time: { created: Date.now() } },
+            parts: [makeToolPart('tool-1', 'msg-1')],
+          },
+        ],
+      };
+
+      await hook({}, output as any);
+
+      expect(output.messages[0].parts.some((part) => part.type === 'tool' && (part as any).metadata?.contexty?.source === 'tool-log')).toBe(true);
+    });
   });
 });

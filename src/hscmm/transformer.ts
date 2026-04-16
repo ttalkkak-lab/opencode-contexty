@@ -22,6 +22,7 @@ import { syncCompressionBlocks, buildToolIdList } from '../dcp/messages/sync';
 import { stripHallucinations } from '../dcp/messages/utils';
 import { applyPendingManualTrigger } from '../dcp/commands';
 import { stripStaleMetadata } from '../dcp/messages/inject';
+import { isMessageCompacted } from '../dcp/state/utils';
 import { cacheSystemPromptTokens } from '../dcp/ui/utils';
 import type { DCPConfig, SessionState, WithParts } from '../dcp/types';
 import type { ContextyConfig } from '../types';
@@ -185,6 +186,7 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, _
 
   return async (_input: unknown, output: HookOutput) => {
     let resolvedSessionId: string | null = null;
+    let dcpState: SessionState | null = null;
 
     try {
       const metricsSessionId = sessionTracker.getSessionId();
@@ -210,23 +212,24 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, _
     const dcpConfig = await loadDCPConfig(directory);
     if (dcpConfig?.enabled) {
       const dcpLogger = createDCPLogger(dcpConfig.debug);
-      const processableMessages = filterProcessableMessages(output.messages);
-
-      if (processableMessages.length !== output.messages.length) {
-        dcpLogger.warn('Skipping messages with unexpected shape during transform', {
-          received: output.messages.length,
-          usable: processableMessages.length,
-        });
-        output.messages = processableMessages;
-      }
-
       resolvedSessionId = await resolveSessionId(output.messages);
       if (resolvedSessionId) {
         const state = await dcpStateAccess.get(resolvedSessionId);
+        dcpState = state;
 
         state.sessionId = resolvedSessionId;
         stripHallucinations(output.messages);
         assignMessageRefs(state, output.messages);
+        const processableMessages = filterProcessableMessages(output.messages);
+
+        if (processableMessages.length !== output.messages.length) {
+          dcpLogger.warn('Skipping messages with unexpected shape during transform', {
+            received: output.messages.length,
+            usable: processableMessages.length,
+          });
+          output.messages = processableMessages;
+        }
+
         syncCompressionBlocks(state, output.messages);
         buildToolIdList(state, output.messages);
         prune(dcpConfig, state, output.messages, dcpLogger);
@@ -284,14 +287,44 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, _
       readToolLog(directory, sessionId),
     ]);
 
+    const messagesById = new Map(output.messages.map((message) => [message.info.id, message]));
+
     const blacklistIds = new Set(blacklistSpec.ids);
     const existingIds = new Set(persistedSpec.parts.map((part) => part.id));
 
+    const refreshCompactedState = (part: ToolPart): ToolPart => {
+      if (!dcpState) {
+        return part;
+      }
+
+      const resolvedMessage = messagesById.get(part.messageID);
+      if (!resolvedMessage) {
+        return part;
+      }
+
+      const compacted = isMessageCompacted(dcpState, resolvedMessage);
+      const state = part.state ?? {};
+      const time = state.time ?? {};
+
+      return {
+        ...part,
+        state: {
+          ...state,
+          time: {
+            ...time,
+            compacted: compacted ? true : false,
+          },
+        },
+      };
+    };
+
+    const refreshedPersistedParts = persistedSpec.parts.map(refreshCompactedState);
+
     const appendParts = toolPartsFromMessages.filter(
       (part) => !blacklistIds.has(part.id) && !existingIds.has(part.id)
-    );
+    ).map(refreshCompactedState);
 
-    const mergedParts = [...persistedSpec.parts, ...appendParts].filter(
+    const mergedParts = [...refreshedPersistedParts, ...appendParts].filter(
       (part) => !blacklistIds.has(part.id)
     );
 
@@ -303,8 +336,6 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, _
       return;
     }
 
-    const messageIDs = new Set(output.messages.map((message) => message.info.id));
-
     const reversedMessages = [...output.messages].reverse();
     const lastAssistantMessage = reversedMessages.find((m) => m.info.role === 'assistant');
     const fallbackMessageID =
@@ -313,11 +344,16 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, _
     const partsByMessageID = new Map<string, ToolPart[]>();
 
     for (const part of mergedParts) {
-      const resolvedMessageID = messageIDs.has(part.messageID)
+      const resolvedMessageID = messagesById.has(part.messageID)
         ? part.messageID
         : fallbackMessageID;
 
       if (!resolvedMessageID) {
+        continue;
+      }
+
+      const resolvedMessage = messagesById.get(resolvedMessageID);
+      if (!resolvedMessage || (dcpState && isMessageCompacted(dcpState, resolvedMessage))) {
         continue;
       }
 

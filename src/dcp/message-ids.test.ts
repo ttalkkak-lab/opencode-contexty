@@ -118,4 +118,19 @@ describe("dcp message ids", () => {
     expect(messageIds.byRawId.get("raw-5")).toBe("m0005");
     expect(messageIds.byRef.get("m0003")).toBe("raw-3");
   });
+
+  test("generates ids for messages missing raw ids", () => {
+    const state = makeState();
+    const messages = [
+      makeMessage({ info: { id: "", role: "user" }, parts: [{ type: "text", text: "first" }] as any[] }),
+      makeMessage({ info: { id: "", role: "assistant" } as any, parts: [{ type: "text", text: "second" }] as any[] }),
+    ];
+
+    expect(assignMessageRefs(state, messages)).toBe(2);
+    expect(messages[0].info.id).toBe("msg_0");
+    expect(messages[1].info.id).toBe("msg_1");
+    const messageIds: any = state.messageIds;
+    expect(messageIds.byRawId.get("msg_0")).toBe("m0001");
+    expect(messageIds.byRawId.get("msg_1")).toBe("m0002");
+  });
 });
