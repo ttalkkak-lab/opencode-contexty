@@ -18,6 +18,8 @@
 
 # opencode-contexty
 
+[teaser.webm](https://github.com/user-attachments/assets/6dbeab08-1245-4a40-b6fd-6e3d9e07682d)
+
 ### Context Engineering for OpenCode
 
 **HSCMM** (Human-supervised Context Management) + **AASM** (Active Agent-supervised Architecture) + **ACPM** (Active Context Permission Management) + **TLS** (Terminal Log Supervision)
