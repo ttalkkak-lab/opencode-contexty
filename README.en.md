@@ -52,7 +52,7 @@ What if you could _feel_ your context? What if a senior architect reviewed every
 That's Context Engineering.
 
 1. **HSCMM** — You control what the AI sees. Explicitly. Transparently.
-2. **AASM** — An active agent that lints your _intent_, not just your code.
+2. **AASM** — A non-blocking background agent that lints your _intent_ in parallel, reports anti-patterns, and lets you keep or revert changes instantly.
 3. **ACPM** — Permission management that controls what tools and folders the AI can access.
 4. **TLS** — An intelligent wrapper that summarizes terminal outputs.
 
@@ -68,6 +68,12 @@ HSCMM persists all tool interactions to `.contexty/tool-parts.json`. Combined wi
 - **Manual Control** — Add files, folders, or text selections to context with one click
 - **Inline Remove** — Exclude unwanted parts with remove buttons
 - **Highlighting** — Lines in context are highlighted directly in the editor
+- **/ban** — Blacklist all context parts matching a file path or glob pattern in one command
+
+```bash
+/ban @src/legacy/oldApi.ts   # Exclude all context parts from a specific file
+/ban @src/generated/**       # Exclude an entire directory via glob pattern
+```
 
 ```
 ┌─────────────────────────────────────────┐
@@ -86,9 +92,9 @@ No more guessing. No more "the AI forgot everything." You see it. You control it
 
 ### AASM: Your Architectural Guardian
 
-> "Put everything in main.ts" — **BLOCKED.**
+> "Put everything in main.ts" — **Flagged in the background while the AI responds.**
 
-AASM analyzes prompts _before_ the AI acts.
+The moment you send a prompt, AASM starts a **non-blocking background analysis** in parallel with the AI's response. When the analysis finishes, a toast notification reports the result. If issues are found, you choose what to do next.
 
 | Anti-Pattern         | What AASM Catches                                      |
 | -------------------- | ------------------------------------------------------ |
@@ -100,19 +106,31 @@ AASM analyzes prompts _before_ the AI acts.
 
 3 severity levels:
 
-- **Critical** — Blocked. Rephrase or disable AASM.
-- **Warning** — Proceeds with caution, risks explained.
-- **Advisory** — Information only, no blocking.
+- **Critical** — Notified immediately; keep or revert prompted.
+- **Warning** — Risks explained; keep or revert prompted.
+- **Advisory** — Information only.
+
+**Keep / Revert**: When issues are detected, after the AI finishes responding, type `keep` or `revert` in the chat input to handle the changes.
+
+```
+keep    → Accept the current changes as-is
+revert  → Roll back the last AI response to the previous state
+```
+
+**Anti-pattern Report**: Aggregates user prompts across current and past sessions to surface recurring patterns.
 
 ```bash
-# Enable active supervision
-/agent-active
+/aasm review        # Report on the last 20 messages
+/aasm review 50     # Report on the last 50 messages
+/aasm-review        # Same as above (shorthand)
+```
 
-# Disable
-/agent-passive
+**Mode and status**:
 
-# Check status
-/agent-status
+```bash
+/aasm active    # Enable active supervision
+/aasm passive   # Disable supervision
+/aasm status    # Check current mode
 ```
 
 ### ACPM: Permission Management
@@ -217,6 +235,7 @@ For detailed options, see the [installation guide](installation.md).
 | **Highlighting**     | Lines in context highlighted with a light blue background in the editor               |
 | **Auto-Refresh**     | Tree view updates when files change                                                   |
 | **Blacklist**        | Removed parts stored in `.contexty/tool-parts.blacklist.json` for permanent exclusion |
+| **/ban**             | Bulk-blacklist all context parts matching a file path or glob pattern                 |
 
 ### Why a Separate Extension?
 
