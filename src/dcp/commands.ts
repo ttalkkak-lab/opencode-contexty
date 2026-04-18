@@ -1,12 +1,12 @@
 import { deactivateBlock } from './compress/state';
-import { getCurrentParams, getTotalToolTokens, countTokens, extractCompletedToolOutput } from './token-utils';
-import { isIgnoredUserMessage, parseBlockRef } from './message-ids';
+import { getCurrentParams, getTotalToolTokens, countTokens, extractCompletedToolOutput } from './tokenUtils';
+import { isIgnoredUserMessage, parseBlockRef } from './messageIds';
 import { isMessageCompacted } from './state/utils';
 import {
   isToolNameProtected,
   isFilePathProtected,
   getFilePathsFromParameters,
-} from './protected-patterns';
+} from './protectedPatterns';
 import { sendIgnoredMessage, formatTokenCount } from './ui/notification';
 import {
   getActiveCompressionTargets,
@@ -58,7 +58,7 @@ const TOOL_COMMANDS: Record<string, [string, string]> = {
   recompress: ['/dcp recompress <n>', 'Re-apply a user-decompressed compression'],
 };
 
-function getVisibleCommands(state: SessionState, config: DCPConfig): [string, string][] {
+function getVisibleCommands(config: DCPConfig): [string, string][] {
   const commands = [...BASE_COMMANDS];
   if (config.compress.permission !== 'deny') {
     commands.push(TOOL_COMMANDS.compress);
@@ -69,7 +69,7 @@ function getVisibleCommands(state: SessionState, config: DCPConfig): [string, st
 }
 
 function formatHelpMessage(state: SessionState, config: DCPConfig): string {
-  const commands = getVisibleCommands(state, config);
+  const commands = getVisibleCommands(config);
   const colWidth = Math.max(...commands.map(([cmd]) => cmd.length)) + 4;
   const lines: string[] = [];
 
@@ -539,16 +539,11 @@ export async function handleRecompressCommand(ctx: BlockCommandContext): Promise
       blocksByIdKeys: Array.from(state.prune.messages.blocksById.keys()),
       activeBlockIds: Array.from(state.prune.messages.activeBlockIds),
     });
-    console.error('resolveCompressionTarget failed to find target for recompress', {
-      targetBlockId,
-      blocksByIdSize: state.prune.messages.blocksById.size,
-      blocksByIdKeys: Array.from(state.prune.messages.blocksById.keys()),
-      activeBlockIds: Array.from(state.prune.messages.activeBlockIds),
-    });
+    const available = getRecompressibleCompressionTargets(state.prune.messages, availableMessageIds);
     await sendIgnoredMessage(
       client,
       sessionId,
-      `Compression ${targetBlockId} does not exist. ${{ sessionId, targetBlockId, blocksByIdSize: state.prune.messages.blocksById.size, blocksByIdKeys: Array.from(state.prune.messages.blocksById.keys()), activeBlockIds: Array.from(state.prune.messages.activeBlockIds) }}`,
+      `Compression ${targetBlockId} does not exist.\n\n${formatAvailableBlocksMessage(available, 'recompress')}`,
       params,
       logger
     );
@@ -639,7 +634,6 @@ function formatSweepMessage(
   mode: 'since-user' | 'last-n',
   toolIds: string[],
   toolMetadata: Map<string, { tool: string }>,
-  workingDirectory?: string,
   skippedProtected?: number
 ): string {
   const lines: string[] = [];
@@ -679,7 +673,7 @@ function formatSweepMessage(
 }
 
 export async function handleSweepCommand(ctx: SweepContext): Promise<void> {
-  const { client, state, config, logger, sessionId, messages, args, workingDirectory } = ctx;
+  const { client, state, config, logger, sessionId, messages, args } = ctx;
   const params = getCurrentParams(state, messages, logger);
   const protectedTools = config.commands.protectedTools;
 
@@ -751,7 +745,6 @@ export async function handleSweepCommand(ctx: SweepContext): Promise<void> {
     mode,
     newToolIds,
     toolMetadata,
-    workingDirectory,
     skippedProtected
   );
   await sendIgnoredMessage(client, sessionId, message, params, logger);

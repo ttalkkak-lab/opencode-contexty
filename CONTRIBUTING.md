@@ -76,22 +76,22 @@ src/
 │   └── storage.ts                        # Tool log persistence (.contexty/)
 ├── aasm/                                 # Active Agent-Supervised Architecture
 │   ├── index.ts                          # AASMModule, IntentAnalyzer
-│   ├── LLMLinter.ts                      # LLM-based architecture linting
-│   ├── LLMLinter.test.ts                 # LLMLinter tests
-│   ├── SubsessionHelper.ts               # LLM subsession management
-│   ├── SubsessionHelper.test.ts          # SubsessionHelper tests
+│   ├── llmLinter.ts                      # LLM-based architecture linting
+│   ├── llmLinter.test.ts                 # llmLinter tests
+│   ├── subsessionHelper.ts               # LLM subsession management
+│   ├── subsessionHelper.test.ts          # subsessionHelper tests
 │   └── prompts.ts                        # Lint prompt builder & parser
 ├── tls/                                  # Terminal Log Summarization
 │   ├── index.ts                          # TLSModule
-│   ├── Shell.ts                          # Shell command executor
-│   ├── TuiController.ts                  # Toast UI feedback
+│   ├── shell.ts                          # Shell command executor
+│   ├── tuiController.ts                  # Toast UI feedback
 │   ├── prompts.ts                        # Summarization & output prompts
 │   └── types.ts                          # TlsResult, BunShellOutput
 ├── hooks/                                # OpenCode integration hooks
 │   ├── index.ts                          # Re-exports
-│   ├── chat-message.aasm.ts              # AASM: intercept user messages
-│   ├── messages-transform.hscmm.ts       # HSCMM: persist & inject tool parts
-│   └── command-execute-before.tls.ts     # TLS: intercept /tls command
+│   ├── chatMessage.aasm.ts              # AASM: intercept user messages
+│   ├── messagesTransform.hscmm.ts       # HSCMM: persist & inject tool parts
+│   └── commandExecuteBefore.tls.ts     # TLS: intercept /tls command
 ├── tools/                                # Agent tools
 │   ├── index.ts                          # Re-exports
 │   └── agent.ts                          # AASM mode control (/agent-*)
@@ -119,7 +119,7 @@ bun run format      # Prettier
 
 HSCMM handles context persistence and transformation.
 
-- **Storage** (`src/hscmm/storage.ts`): Tool log read/write to `.contexty/tool-parts.json`
+- **Storage** (`src/hscmm/storage.ts`): Tool log read/write to `.contexty/sessions/<sessionId>/tool-parts.json`
 - **Transformation** (`src/hscmm/transformer.ts`): Extract tool parts from messages, deduplicate, respect blacklist, re-inject with metadata
 - Tests: `src/hscmm/transformer.test.ts`
 
@@ -146,16 +146,16 @@ AASM handles intent analysis and architecture linting.
    };
    ```
 
-3. Tests: `src/aasm/LLMLinter.test.ts`, `src/aasm/SubsessionHelper.test.ts`
+3. Tests: `src/aasm/llmLinter.test.ts`, `src/aasm/subsessionHelper.test.ts`
 
 ### Adding TLS Features
 
 TLS wraps terminal commands and summarizes output via LLM. Results are also persisted to HSCMM.
 
-- **Shell execution** (`src/tls/Shell.ts`): Command execution via Bun shell, returns `BunShellOutput`
-- **Summarization** (`src/tls/index.ts`): LLM-based output summarization through SubsessionHelper
+- **Shell execution** (`src/tls/shell.ts`): Command execution via Bun shell, returns `BunShellOutput`
+- **Summarization** (`src/tls/index.ts`): LLM-based output summarization through subsessionHelper
 - **Prompts** (`src/tls/prompts.ts`): Summarization prompt and output template
-- **UI feedback** (`src/tls/TuiController.ts`): Animated toast notifications for progress/success/fail
+- **UI feedback** (`src/tls/tuiController.ts`): Animated toast notifications for progress/success/fail
 - **Types** (`src/tls/types.ts`): `TlsResult`, `BunShellOutput`
 
 ### Adding a New Hook

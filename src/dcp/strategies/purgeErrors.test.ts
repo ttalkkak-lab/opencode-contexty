@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import type { DCPConfig, SessionState, ToolParameterEntry } from '../types';
-import { purgeErrors } from './purge-errors';
+import { purgeErrors } from './purgeErrors';
 
 function createConfig(overrides?: Partial<DCPConfig['strategies']['purgeErrors']>): DCPConfig {
   return {
@@ -96,7 +96,7 @@ function toolEntry(tool: string, turn: number, status: ToolParameterEntry['statu
   };
 }
 
-describe('purge-errors', () => {
+describe('purgeErrors', () => {
   test('marks old error tools for pruning', () => {
     const config = createConfig();
     const state = createState(6);

@@ -8,8 +8,8 @@ import {
   SubsessionConfig,
 } from '../types';
 import { FileSystem, Logger } from '../utils';
-import { SubsessionHelper } from './SubsessionHelper';
-import { LLMLinter } from './LLMLinter';
+import { SubsessionHelper } from './subsessionHelper';
+import { LLMLinter } from './llmLinter';
 import { buildReviewPrompt } from './prompts';
 
 export class IntentAnalyzer {
@@ -145,7 +145,7 @@ export class AASMModule {
 
     if (this.llmLinter && this.client && sessionID) {
       try {
-        const lintResult = await this.llmLinter.lint(userPrompt, sessionID, intent);
+        const lintResult = await this.llmLinter.lint(userPrompt, sessionID);
         return { approved: true, intent, lintResult, llmUsed: true };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -333,7 +333,7 @@ export class AASMModule {
         }
 
         try {
-          const lintResult = await this.llmLinter.lint(entry.text, entry.sessionID, intent);
+          const lintResult = await this.llmLinter.lint(entry.text, entry.sessionID);
           return {
             ...entry,
             intent,

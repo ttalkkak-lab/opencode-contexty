@@ -1,5 +1,7 @@
+import type { DCPConfig } from '../dcp/types';
+
 /**
- * Core types for Contexty Extension (AASM Subset)
+ * Core shared types for Contexty
  */
 
 /**
@@ -65,13 +67,13 @@ export interface SubsessionConfig {
   model?: string;
 }
 
-import type { DCPConfig } from '../dcp/types';
-
 /**
  * Extension configuration
  */
 
 export interface ContextyConfig {
+  /** Optional JSON schema declaration */
+  $schema?: string;
   /** HSCMM settings (Optional in this subset) */
   hscmm?: {
     maxTokens: number;

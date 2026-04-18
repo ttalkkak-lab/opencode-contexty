@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, mock } from 'bun:test';
-import { SubsessionHelper } from './SubsessionHelper';
+import { SubsessionHelper } from './subsessionHelper';
 
 describe('SubsessionHelper', () => {
   let helper: SubsessionHelper;

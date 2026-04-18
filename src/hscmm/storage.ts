@@ -7,6 +7,7 @@ import type {
   SessionState,
   ToolParameterEntry,
 } from "../dcp/types";
+import { createEmptyDcpState } from "../dcp/sessionState";
 
 export type ToolStateCompleted = {
     status: "completed";
@@ -93,50 +94,6 @@ type SerializedSessionState = {
   modelContextLimit: number | undefined;
   systemPromptTokens: number | undefined;
 };
-
-const emptySessionState = (): SessionState => ({
-  sessionId: null,
-  isSubAgent: false,
-  manualMode: false,
-  compressPermission: undefined,
-  pendingManualTrigger: null,
-  prune: {
-    tools: new Map(),
-    messages: {
-      byMessageId: new Map(),
-      blocksById: new Map(),
-      activeBlockIds: new Set(),
-      activeByAnchorMessageId: new Map(),
-      nextBlockId: 1,
-      nextRunId: 1,
-    },
-  },
-  nudges: {
-    contextLimitAnchors: new Set(),
-    turnNudgeAnchors: new Set(),
-    iterationNudgeAnchors: new Set(),
-  },
-  stats: {
-    pruneTokenCounter: 0,
-    totalPruneTokens: 0,
-  },
-  compressionTiming: {
-    pendingByCallId: new Map(),
-  },
-  toolParameters: new Map(),
-  subAgentResultCache: new Map(),
-  toolIdList: [],
-  messageIds: {
-    byRawId: new Map(),
-    byRef: new Map(),
-    nextRef: 1,
-  },
-  lastCompaction: 0,
-  currentTurn: 0,
-  variant: undefined,
-  modelContextLimit: undefined,
-  systemPromptTokens: undefined,
-});
 
 const mapToEntries = <K, V>(map: Map<K, V>): SerializedEntry<K, V>[] => Array.from(map.entries());
 
@@ -263,7 +220,7 @@ const serializeSessionState = (state: SessionState): SerializedSessionState => (
 });
 
 const deserializeSessionState = (raw: Partial<SerializedSessionState> | undefined): SessionState => {
-  const state = emptySessionState();
+  const state = createEmptyDcpState(null);
 
   if (!raw) {
     return state;

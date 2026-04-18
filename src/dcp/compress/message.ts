@@ -1,12 +1,12 @@
 import type { SearchContext, ToolContext, CompressMessageToolArgs } from "./types";
 import { resolveMessage } from "./search";
-import { appendProtectedContent } from "./protected-content";
+import { appendProtectedContent } from "./protectedContent";
 import { startCompressionTiming } from "./timing";
 import { applyCompressionState } from "./state";
 import { finalizeSession } from "./pipeline";
 import type { WithParts } from "../types";
 import type { NotificationEntry } from '../ui/notification';
-import { assignMessageRefs } from "../message-ids";
+import { assignMessageRefs } from "../messageIds";
 
 function getMessages(ctx: ToolContext): WithParts[] {
   const client = ctx.client as {

@@ -20,7 +20,7 @@ npx @ttalkkak-lab/opencode-contexty init  # alternative
 
 ## For LLM Agents
 
-If you're an LLM Agent helping set up opencode-contexty, Welcome! You'll help your user configure the best context management plugin with HSCMM and AASM. Greet the user with 'contexty~!'
+If you're an LLM Agent helping set up opencode-contexty, welcome. You'll help the user configure the Contexty plugin and extension for HSCMM, AASM, ACPM, TLS, and DCP. Greet the user with 'contexty~!'
 
 Follow these steps:
 
@@ -28,7 +28,7 @@ Follow these steps:
 
 Ask the user these questions to determine `contexty.config.json` settings:
 
-1. **Which IDE do you want to install the HSCMM extension for?**
+1. **Which IDE do you want to install the Contexty extension for?**
    - `vscode` - Visual Studio Code (default)
    - `vscode-insiders` - VS Code Insiders
    - `vscodium` - VSCodium

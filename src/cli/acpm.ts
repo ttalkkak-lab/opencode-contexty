@@ -16,14 +16,6 @@ function normalizePath(input: string): string {
   return input.trim();
 }
 
-async function collectFolderPermissions(): Promise<FolderPermission[]> {
-  return collectFolderPermissionsWithDeps(promptInput, promptSelect, promptYesNo);
-}
-
-async function collectToolPermissions(): Promise<ToolPermission[]> {
-  return collectToolPermissionsWithDeps(promptYesNo);
-}
-
 export async function runACPMWizard(baseDir: string, deps: PromptDeps = {}): Promise<string | null> {
   const input = deps.promptInput ?? promptInput;
   const select = deps.promptSelect ?? promptSelect;

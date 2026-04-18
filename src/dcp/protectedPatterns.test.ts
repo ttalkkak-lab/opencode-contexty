@@ -7,9 +7,9 @@ import {
   isFilePathProtected,
   isToolNameProtected,
   matchesGlob,
-} from './protected-patterns';
+} from './protectedPatterns';
 
-describe('protected-patterns', () => {
+describe('protectedPatterns', () => {
   test('checks protected tool names', () => {
     expect(isToolNameProtected('task', DEFAULT_PROTECTED_TOOLS)).toBe(true);
     expect(isToolNameProtected('read_file', DEFAULT_PROTECTED_TOOLS)).toBe(false);

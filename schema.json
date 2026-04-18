@@ -2,8 +2,9 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://unpkg.com/@ttalkkak-lab/opencode-contexty/schema.json",
   "title": "Contexty Configuration",
-  "description": "Configuration schema for @ttalkkak-lab/opencode-contexty plugin",
+  "description": "Configuration schema for @ttalkkak-lab/opencode-contexty",
   "type": "object",
+  "additionalProperties": false,
   "properties": {
     "$schema": {
       "type": "string",
@@ -11,40 +12,269 @@
     },
     "aasm": {
       "type": "object",
+      "additionalProperties": false,
       "description": "Active Agent-supervised Architecture settings",
       "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable or disable AASM"
-        },
         "mode": {
           "type": "string",
           "enum": ["passive", "active"],
-          "default": "passive",
-          "description": "Agent supervision mode. 'passive' monitors without intervention, 'active' enables architecture linting and intent analysis."
-        },
-        "enableLinting": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable architecture linting to detect anti-patterns and violations"
-        },
-        "confidenceThreshold": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1,
-          "default": 0.7,
-          "description": "Confidence threshold for AASM decisions (0.0-1.0)"
+          "default": "passive"
         },
         "model": {
           "type": "string",
-          "description": "Custom model identifier for AASM operations (e.g., 'google/antigravity-gemini-3-flash'). If not specified, uses the session model."
+          "description": "Optional model override for architecture analysis"
         }
       },
-      "required": ["enabled", "mode", "enableLinting", "confidenceThreshold"],
-      "additionalProperties": false
+      "required": ["mode"]
+    },
+    "tls": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Terminal Log Supervision settings",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "model": {
+          "type": "string",
+          "description": "Optional model override for terminal summary generation"
+        }
+      },
+      "required": ["enabled"]
+    },
+    "hscmm": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Human-supervised Context Management settings",
+      "properties": {
+        "maxTokens": {
+          "type": "number"
+        },
+        "autoCleanupThreshold": {
+          "type": "number"
+        },
+        "snapshotDir": {
+          "type": "string"
+        }
+      },
+      "required": ["maxTokens", "autoCleanupThreshold", "snapshotDir"]
+    },
+    "acpm": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Active Context Permission Management settings",
+      "properties": {
+        "defaultPreset": {
+          "type": "string"
+        }
+      }
+    },
+    "dcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Dynamic Context Pruning settings",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "debug": {
+          "type": "boolean"
+        },
+        "pruneNotification": {
+          "type": "string",
+          "enum": ["off", "minimal", "detailed"]
+        },
+        "pruneNotificationType": {
+          "type": "string",
+          "enum": ["chat", "toast"]
+        },
+        "commands": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "protectedTools": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["enabled", "protectedTools"]
+        },
+        "manualMode": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "automaticStrategies": {
+              "type": "boolean"
+            }
+          },
+          "required": ["enabled", "automaticStrategies"]
+        },
+        "turnProtection": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "turns": {
+              "type": "number"
+            }
+          },
+          "required": ["enabled", "turns"]
+        },
+        "experimental": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "allowSubAgents": {
+              "type": "boolean"
+            },
+            "customPrompts": {
+              "type": "boolean"
+            }
+          },
+          "required": ["allowSubAgents", "customPrompts"]
+        },
+        "protectedFilePatterns": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "compress": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["range", "message"]
+            },
+            "permission": {
+              "type": "string",
+              "enum": ["ask", "allow", "deny"]
+            },
+            "showCompression": {
+              "type": "boolean"
+            },
+            "summaryBuffer": {
+              "type": "boolean"
+            },
+            "maxContextLimit": {
+              "$ref": "#/definitions/limitValue"
+            },
+            "minContextLimit": {
+              "$ref": "#/definitions/limitValue"
+            },
+            "modelMaxLimits": {
+              "$ref": "#/definitions/modelLimitMap"
+            },
+            "modelMinLimits": {
+              "$ref": "#/definitions/modelLimitMap"
+            },
+            "nudgeFrequency": {
+              "type": "number"
+            },
+            "iterationNudgeThreshold": {
+              "type": "number"
+            },
+            "nudgeForce": {
+              "type": "string",
+              "enum": ["strong", "soft"]
+            },
+            "protectedTools": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "protectUserMessages": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "mode",
+            "permission",
+            "showCompression",
+            "summaryBuffer",
+            "maxContextLimit",
+            "minContextLimit",
+            "nudgeFrequency",
+            "iterationNudgeThreshold",
+            "nudgeForce",
+            "protectedTools",
+            "protectUserMessages"
+          ]
+        },
+        "strategies": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "deduplication": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "protectedTools": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              },
+              "required": ["enabled", "protectedTools"]
+            },
+            "purgeErrors": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "turns": {
+                  "type": "number"
+                },
+                "protectedTools": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              },
+              "required": ["enabled", "turns", "protectedTools"]
+            }
+          },
+          "required": ["deduplication", "purgeErrors"]
+        }
+      },
+      "required": [
+        "enabled",
+        "debug",
+        "pruneNotification",
+        "pruneNotificationType",
+        "commands",
+        "manualMode",
+        "turnProtection",
+        "experimental",
+        "protectedFilePatterns",
+        "compress",
+        "strategies"
+      ]
     }
   },
-  "required": ["aasm"],
-  "additionalProperties": false
+  "required": ["aasm", "tls"],
+  "definitions": {
+    "limitValue": {
+      "oneOf": [
+        { "type": "number" },
+        { "type": "string", "pattern": "^[0-9]+%$" }
+      ]
+    },
+    "modelLimitMap": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/limitValue"
+      }
+    }
+  }
 }

@@ -1,4 +1,4 @@
-import { countAllMessageTokens } from "../token-utils";
+import { countAllMessageTokens } from "../tokenUtils";
 import { isMessageCompacted } from "../state/utils";
 import type { SessionState, WithParts } from "../types";
 

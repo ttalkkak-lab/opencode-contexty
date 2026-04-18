@@ -3,40 +3,17 @@
  */
 
 import { writeFileSync, mkdirSync } from 'fs';
-import { join } from 'path';
+import type { ContextyConfig } from '../types';
+import { DEFAULT_CONTEXTY_CONFIG } from '../config/contextyConfig';
+import { CONFIG_DIR_PATH, GLOBAL_CONTEXTY_CONFIG_PATH } from '../config/paths';
 
-export interface ContextyConfig {
-  $schema: string;
-  aasm: {
-    mode: 'passive' | 'active';
-    model?: string;
-  };
-}
+export { OPENCODE_CONFIG_PATH, GLOBAL_CONTEXTY_CONFIG_PATH } from '../config/paths';
+export type { ContextyConfig } from '../types';
 
-export const DEFAULT_CONFIG: ContextyConfig = {
-  $schema: 'https://unpkg.com/@ttalkkak-lab/opencode-contexty/schema.json',
-  aasm: {
-    mode: 'passive',
-  },
-};
-
-export const OPENCODE_CONFIG_PATH = join(
-  process.env.HOME || process.env.USERPROFILE || '~',
-  '.config',
-  'opencode',
-  'opencode.json'
-);
-
-export const GLOBAL_CONTEXTY_CONFIG_PATH = join(
-  process.env.HOME || process.env.USERPROFILE || '~',
-  '.config',
-  'opencode',
-  'contexty.config.json'
-);
+export const DEFAULT_CONFIG: ContextyConfig = DEFAULT_CONTEXTY_CONFIG;
 
 export function writeConfig(config: ContextyConfig): string {
-  const configDir = join(process.env.HOME || process.env.USERPROFILE || '~', '.config', 'opencode');
-  mkdirSync(configDir, { recursive: true });
+  mkdirSync(CONFIG_DIR_PATH, { recursive: true });
 
   const configPath = GLOBAL_CONTEXTY_CONFIG_PATH;
   const content = JSON.stringify(config, null, 2);

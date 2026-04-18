@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { createBanCommandHook } from './command-execute-before.hscmm';
+import { createBanCommandHook } from './commandExecuteBefore.hscmm';
 import { writeToolLog, readToolLogBlacklist, type ToolPart } from '../hscmm';
 
 function makePart(id: string, filePath: string): ToolPart {

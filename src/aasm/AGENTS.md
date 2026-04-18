@@ -8,8 +8,8 @@ The "Active Agent" supervision layer that validates user intent and enforces arc
 ## WHERE TO LOOK
 | Task | Location | Notes |
 |------|----------|-------|
-| **Lint Logic** | `LLMLinter.ts` | Core linter for detecting anti-patterns |
-| **Intent Analysis** | `SubsessionHelper.ts` | Classifies user intent (refactor/feature/fix) |
+| **Lint Logic** | `llmLinter.ts` | Core linter for detecting anti-patterns |
+| **Intent Analysis** | `subsessionHelper.ts` | Classifies user intent (refactor/feature/fix) |
 | **Prompts** | `prompts.ts` | System prompts for the supervision agent |
 | **Entry** | `index.ts` | Module initialization |
 

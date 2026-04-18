@@ -50,7 +50,6 @@ export function createAcpmTool(acpm: ACPMModule): ReturnType<typeof tool> {
           }
 
           case 'reload': {
-            const presets = await acpm.listPresets();
             const activeName = acpm.getActivePreset()?.name;
             if (activeName) {
               await acpm.loadPreset(activeName);

@@ -1,6 +1,6 @@
 import { wrapCompressedSummary } from "../compress/state";
 import { deduplicate } from "../strategies/deduplication";
-import { purgeErrors } from "../strategies/purge-errors";
+import { purgeErrors } from "../strategies/purgeErrors";
 import { isMessageCompacted } from "../state/utils";
 import { replaceBlockIdsWithBlocked } from "./utils";
 import type { DCPConfig, SessionState, ToolParameterEntry, WithParts } from "../types";

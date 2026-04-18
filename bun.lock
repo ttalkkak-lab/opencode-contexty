@@ -5,12 +5,12 @@
     "": {
       "name": "contexty",
       "dependencies": {
-        "@anthropic-ai/tokenizer": "latest",
+        "@anthropic-ai/tokenizer": "^0.0.4",
         "@opencode-ai/sdk": "^1.3.2",
       },
       "devDependencies": {
         "@opencode-ai/plugin": "^1.3.2",
-        "bun-types": "latest",
+        "bun-types": "^1.3.6",
         "tsup": "^8.5.1",
         "typescript": "^5.4.0",
       },
