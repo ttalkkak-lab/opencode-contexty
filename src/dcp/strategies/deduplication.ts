@@ -1,4 +1,4 @@
-import { DEFAULT_PROTECTED_TOOLS, isToolNameProtected } from '../protected-patterns';
+import { DEFAULT_PROTECTED_TOOLS, isToolNameProtected } from '../protectedPatterns';
 import type { DCPConfig, SessionState, ToolParameterEntry } from '../types';
 
 type ToolParameterEntryWithCallId = ToolParameterEntry & { callID?: string };

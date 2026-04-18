@@ -69,7 +69,7 @@ export function installIDEExtension(ide: IDEType): boolean {
   }
 
   console.log('');
-  info(`Installing HSCMM extension for ${ideConfig.name}...`);
+  info(`Installing Contexty extension for ${ideConfig.name}...`);
 
   // Check if CLI is available
   if (!checkCliAvailable(ideConfig.cliCommand)) {
@@ -85,7 +85,7 @@ export function installIDEExtension(ide: IDEType): boolean {
     execSync(`${ideConfig.cliCommand} --install-extension ${EXTENSION_ID}`, {
       stdio: 'inherit',
     });
-    success(`Installed HSCMM extension for ${ideConfig.name}`);
+    success(`Installed Contexty extension for ${ideConfig.name}`);
     return true;
   } catch {
     // If marketplace install fails, try from VSIX URL
@@ -95,7 +95,7 @@ export function installIDEExtension(ide: IDEType): boolean {
       execSync(`${ideConfig.cliCommand} --install-extension ${vsixUrl}`, {
         stdio: 'inherit',
       });
-      success(`Installed HSCMM extension for ${ideConfig.name} from GitHub releases`);
+      success(`Installed Contexty extension for ${ideConfig.name} from GitHub releases`);
       return true;
     } catch {
       warn(`Could not install extension automatically`);

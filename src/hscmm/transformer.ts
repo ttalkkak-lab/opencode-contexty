@@ -14,9 +14,9 @@ import type { ACPMModule } from '../acpm';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Logger } from '../utils';
-import { GLOBAL_CONTEXTY_CONFIG_PATH } from '../cli/config';
+import { loadContextyConfig } from '../config/contextyConfig';
 import { createLogger as createDCPLogger } from '../dcp/logger';
-import { filterProcessableMessages, assignMessageRefs } from '../dcp/message-ids';
+import { filterProcessableMessages, assignMessageRefs } from '../dcp/messageIds';
 import { injectCompressNudges, injectMessageIds } from '../dcp/messages/inject';
 import { prune } from '../dcp/messages/prune';
 import { syncCompressionBlocks, buildToolIdList } from '../dcp/messages/sync';
@@ -26,7 +26,7 @@ import { stripStaleMetadata } from '../dcp/messages/inject';
 import { isMessageCompacted } from '../dcp/state/utils';
 import { cacheSystemPromptTokens } from '../dcp/ui/utils';
 import type { DCPConfig, SessionState, WithParts } from '../dcp/types';
-import type { ContextyConfig } from '../types';
+import { createEmptyDcpState } from '../dcp/sessionState';
 
 interface HookOutput {
   messages: WithParts[];
@@ -43,53 +43,7 @@ export interface StateAccess {
   persist: (sessionId: string, state: SessionState) => Promise<void>;
 }
 
-function createEmptyDcpState(sessionId: string): SessionState {
-  return {
-    sessionId,
-    isSubAgent: false,
-    manualMode: false,
-    compressPermission: undefined,
-    pendingManualTrigger: null,
-    prune: {
-      tools: new Map(),
-      messages: {
-        byMessageId: new Map(),
-        blocksById: new Map(),
-        activeBlockIds: new Set(),
-        activeByAnchorMessageId: new Map(),
-        nextBlockId: 1,
-        nextRunId: 1,
-      },
-    },
-    nudges: {
-      contextLimitAnchors: new Set(),
-      turnNudgeAnchors: new Set(),
-      iterationNudgeAnchors: new Set(),
-    },
-    stats: {
-      pruneTokenCounter: 0,
-      totalPruneTokens: 0,
-    },
-    compressionTiming: {
-      pendingByCallId: new Map(),
-    },
-    toolParameters: new Map(),
-    subAgentResultCache: new Map(),
-    toolIdList: [],
-    messageIds: {
-      byRawId: new Map(),
-      byRef: new Map(),
-      nextRef: 1,
-    },
-    lastCompaction: 0,
-    currentTurn: 1,
-    variant: undefined,
-    modelContextLimit: undefined,
-    systemPromptTokens: 0,
-  };
-}
-
-function getParts(message: WithParts): any[] {
+function getParts(message: WithParts): NonNullable<WithParts['parts']> {
   return Array.isArray(message.parts) ? message.parts : [];
 }
 
@@ -108,17 +62,8 @@ export async function resolveSessionId(messages: WithParts[]): Promise<string | 
 }
 
 async function loadDCPConfig(directory: string): Promise<DCPConfig | null> {
-  const localConfigPath = path.join(directory, 'contexty.config.json');
-  for (const configPath of [localConfigPath, GLOBAL_CONTEXTY_CONFIG_PATH]) {
-    try {
-      const raw = await fs.readFile(configPath, 'utf8');
-      const parsed = JSON.parse(raw) as ContextyConfig;
-      if (parsed.dcp) return parsed.dcp;
-    } catch {
-      continue;
-    }
-  }
-  return null;
+  const { config } = await loadContextyConfig(directory);
+  return config.dcp ?? null;
 }
 
 function isValidToolPart(part: any): part is ToolPart {
@@ -170,7 +115,7 @@ async function filePartToToolPart(filePart: any, directory: string, sessionId: s
       input: { filePath: absolutePath },
       output: numberedOutput,
       title: source.path,
-      metadata: { preview, truncated: !truncated },
+      metadata: { preview, truncated },
       time: { start: timestamp, end: timestamp },
     },
     metadata: {
@@ -195,15 +140,6 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, _
     try {
       const metricsSessionId = sessionTracker.getSessionId();
       if (metricsSessionId && acpm) {
-        const first = output.messages[0];
-        if (first) {
-          const firstParts = getParts(first);
-          Logger.debug('metrics debug — first message info keys: ' + Object.keys(first.info).join(', '), { tokens: (first.info as any).tokens, partsCount: firstParts.length, firstPartType: firstParts[0]?.type, firstPartKeys: firstParts[0] ? Object.keys(firstParts[0]).join(',') : undefined });
-        }
-        const last = output.messages[output.messages.length - 1];
-        if (last) {
-          Logger.debug('metrics debug — last message role: ' + last.info.role + ', tokens: ' + JSON.stringify((last.info as any).tokens), { infoKeys: Object.keys(last.info).join(',') });
-        }
         const collector = new MetricsCollector(directory);
         const snapshot = collector.collect(output.messages, metricsSessionId);
         const acpmMetrics = buildAcpmMetrics(acpm, acpmCounter);
@@ -262,7 +198,9 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, _
           if (isValidToolPart(part)) {
             toolPartsFromMessages.push(part);
           } else {
-            console.warn(`[Contexty] Invalid tool part encountered: ${part.id || 'unknown'}`);
+            Logger.warn('Invalid tool part encountered during transform', {
+              partId: typeof part.id === 'string' ? part.id : 'unknown',
+            });
           }
         } else if (
           part.type === 'file' &&

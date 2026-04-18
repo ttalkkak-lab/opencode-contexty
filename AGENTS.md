@@ -34,9 +34,9 @@
 |--------|------|----------|------|
 | `HSCMM` | Module | `src/hscmm/index.ts` | Manages manual context control |
 | `AASM` | Module | `src/aasm/index.ts` | Manages active supervision agent |
-| `LLMLinter` | Class | `src/aasm/LLMLinter.ts` | Analyzes code for architectural violations |
+| `llmLinter` | Class | `src/aasm/llmLinter.ts` | Analyzes code for architectural violations |
 | `ContextTransformer` | Class | `src/hscmm/transformer.ts` | Modifies context before sending to LLM |
-| `SubsessionHelper` | Class | `src/aasm/SubsessionHelper.ts` | Handles sub-agent intent analysis |
+| `subsessionHelper` | Class | `src/aasm/subsessionHelper.ts` | Handles sub-agent intent analysis |
 
 ## COMMANDS
 ```bash

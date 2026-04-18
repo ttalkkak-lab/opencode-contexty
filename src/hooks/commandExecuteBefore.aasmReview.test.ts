@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { createAASMReviewCommandHook } from './command-execute-before.aasm-review';
+import { createAASMReviewCommandHook } from './commandExecuteBefore.aasmReview';
 
 function createOutput() {
   return {

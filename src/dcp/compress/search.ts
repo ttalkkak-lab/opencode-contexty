@@ -1,12 +1,11 @@
-import { parseBoundaryId, parseMessageRef } from "../message-ids";
-import type { DCPLogger } from "../logger";
-import type { SessionState, WithParts } from "../types";
+import { parseBoundaryId } from "../messageIds";
+import type { WithParts } from "../types";
 import type {
   MessageSelectionResolution,
   RangeSelectionResolution,
   SearchContext,
 } from "./types";
-import { countAllMessageTokens } from "../token-utils";
+import { countAllMessageTokens } from "../tokenUtils";
 
 type BoundaryKind = "start" | "end";
 

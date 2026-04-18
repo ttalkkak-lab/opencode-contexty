@@ -1,5 +1,5 @@
-import { formatBlockRef, formatMessageIdTag } from "../message-ids";
-import { countTokens } from "../token-utils";
+import { formatBlockRef, formatMessageIdTag } from "../messageIds";
+import { countTokens } from "../tokenUtils";
 import type { CompressionBlock, SessionState } from "../types";
 import { endCompressionTiming } from "./timing";
 import type { CompressionApplyInput } from "./types";

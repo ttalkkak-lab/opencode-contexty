@@ -5,32 +5,7 @@ import type {
   ToolMetrics,
   TokenMetrics,
 } from './types';
-
-interface MessagePart {
-  type: string;
-  [key: string]: any;
-}
-
-interface AssistantMessageInfo {
-  id: string;
-  role: 'assistant';
-  tokens: {
-    input: number;
-    output: number;
-    reasoning: number;
-    cache: {
-      read: number;
-      write: number;
-    };
-  };
-}
-
-interface UserMessageInfo {
-  id: string;
-  role: 'user';
-}
-
-type MessageInfo = AssistantMessageInfo | UserMessageInfo;
+import type { WithParts } from '../dcp/types';
 
 interface FilePartSourceText {
   value?: string;
@@ -41,11 +16,6 @@ interface FilePartSource {
   text?: FilePartSourceText;
 }
 
-interface Message {
-  info: MessageInfo;
-  parts: MessagePart[];
-}
-
 function estimateTokens(content: unknown): number {
   return typeof content === 'string' && content.length > 0 ? Math.ceil(content.length / 4) : 0;
 }
@@ -54,10 +24,25 @@ function isErrorStatus(status: unknown): boolean {
   return status === 'error' || status === 'failed' || status === 'failure' || status === 'errored';
 }
 
+type MessageTokens = {
+  input?: number;
+  output?: number;
+  reasoning?: number;
+  cache?: {
+    read?: number;
+    write?: number;
+  };
+};
+
+function getMessageTokens(info: WithParts['info']): MessageTokens | null {
+  const tokens = info.tokens;
+  return tokens && typeof tokens === 'object' ? (tokens as MessageTokens) : null;
+}
+
 export class MetricsCollector {
   constructor(private readonly directory: string) {}
 
-  collect(messages: any[], sessionId = 'unknown'): MetricsSnapshot {
+  collect(messages: WithParts[], sessionId = 'unknown'): MetricsSnapshot {
     void this.directory;
 
     const tokens: TokenMetrics = {
@@ -74,7 +59,7 @@ export class MetricsCollector {
     for (const message of messages) {
       let messageTokens = 0;
 
-      for (const part of message.parts) {
+      for (const part of message.parts ?? []) {
         if (typeof part.text === 'string' && part.text.length > 0) {
           messageTokens += estimateTokens(part.text);
         }
@@ -105,7 +90,10 @@ export class MetricsCollector {
             continue;
           }
 
-          const status = part.state?.status;
+          const status =
+            part.state && typeof part.state === 'object'
+              ? (part.state as { status?: unknown }).status
+              : undefined;
           if (status !== 'completed' && !isErrorStatus(status)) {
             continue;
           }
@@ -130,11 +118,12 @@ export class MetricsCollector {
       }
 
       if (message.info.role === 'assistant') {
-        tokens.input += message.info.tokens.input || 0;
-        tokens.output += message.info.tokens.output || 0;
-        tokens.reasoning += message.info.tokens.reasoning || 0;
-        tokens.cacheRead += message.info.tokens.cache?.read || 0;
-        tokens.cacheWrite += message.info.tokens.cache?.write || 0;
+        const messageTokensInfo = getMessageTokens(message.info);
+        tokens.input += messageTokensInfo?.input || 0;
+        tokens.output += messageTokensInfo?.output || 0;
+        tokens.reasoning += messageTokensInfo?.reasoning || 0;
+        tokens.cacheRead += messageTokensInfo?.cache?.read || 0;
+        tokens.cacheWrite += messageTokensInfo?.cache?.write || 0;
       } else {
         tokens.input += messageTokens;
       }

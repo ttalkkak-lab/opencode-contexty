@@ -11,7 +11,7 @@ import {
   parseBlockRef,
   parseBoundaryId,
   parseMessageRef,
-} from "./message-ids";
+} from "./messageIds";
 import type { SessionState, WithParts } from "./types";
 
 const makeMessage = (overrides: Partial<WithParts> & { info?: Partial<WithParts["info"]> } = {}): WithParts => ({

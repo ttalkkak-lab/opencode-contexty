@@ -1,25 +1,43 @@
 import { endCompressionTiming, startCompressionTiming } from "./compress/timing";
 import type { SessionState } from "./types";
 
-type CompressionEvent = {
-  type: string;
-  part?: any;
-  message?: any;
+type ToolState = {
+  status?: string;
+  output?: unknown;
 };
 
-function getCallId(part: any): string | undefined {
+type ToolPartLike = {
+  type?: string;
+  tool?: string;
+  callID?: string;
+  state?: ToolState;
+};
+
+type CompressionEvent = {
+  type: string;
+  part?: unknown;
+  message?: {
+    part?: unknown;
+  };
+};
+
+function asToolPart(value: unknown): ToolPartLike | null {
+  return value && typeof value === "object" ? (value as ToolPartLike) : null;
+}
+
+function getCallId(part: ToolPartLike | null): string | undefined {
   return typeof part?.callID === "string" && part.callID.length > 0 ? part.callID : undefined;
 }
 
-function isCompressTool(part: any): boolean {
+function isCompressTool(part: ToolPartLike | null): boolean {
   return part?.type === "tool" && part.tool === "compress";
 }
 
-function isRunning(part: any): boolean {
+function isRunning(part: ToolPartLike | null): boolean {
   return part?.state?.status === "running";
 }
 
-function isCompleted(part: any): boolean {
+function isCompleted(part: ToolPartLike | null): boolean {
   return part?.state?.status === "completed";
 }
 
@@ -58,7 +76,7 @@ export function handleCompressionEvent(state: SessionState, event: CompressionEv
     return;
   }
 
-  const part = event.part ?? event.message?.part;
+  const part = asToolPart(event.part ?? event.message?.part);
   if (!isCompressTool(part)) {
     return;
   }
@@ -85,5 +103,5 @@ export function handleCompressionEvent(state: SessionState, event: CompressionEv
   }
 
   const durationMs = endCompressionTiming(state, callId, blockId);
-  console.info("Compression completed", { callId, blockId, durationMs });
+  void durationMs;
 }

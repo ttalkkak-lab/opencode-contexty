@@ -1,4 +1,4 @@
-import { parseBoundaryId } from "../message-ids";
+import { parseBoundaryId } from "../messageIds";
 import type { SessionState } from "../types";
 
 export interface BlockPlaceholder {

@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 import { ACPMModule } from '../acpm';
 import type { Preset } from '../acpm/types';
-import { createToolExecuteBeforeHook } from './tool-execute-before.acpm';
+import { createToolExecuteBeforeHook } from './toolExecuteBefore.acpm';
 
 const makePreset = (overrides: Partial<Preset> = {}): Preset => ({
   name: 'test',

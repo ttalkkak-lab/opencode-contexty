@@ -1,23 +1,22 @@
 import type { PluginInput } from '@opencode-ai/plugin';
 import type { ContextyConfig, SubsessionConfig } from '../types';
-import { SubsessionHelper } from '../aasm/SubsessionHelper';
+import { SubsessionHelper } from '../aasm/subsessionHelper';
 import { TlsResult, BunShellOutput } from './types';
-import { Shell } from './Shell';
-import { TuiController } from './TuiController';
-import { getSummarizationPrompt, getOutputPrompt } from './prompts';
+import { Shell } from './shell';
+import { TuiController } from './tuiController';
+import { getSummarizationPrompt } from './prompts';
 
 export class TLSModule {
   private tui: TuiController;
   private shell: Shell;
   private internalModel: SubsessionHelper;
   private config: ContextyConfig['tls'];
-  private configPath: string | null = null;
 
   constructor(pluginInput: PluginInput, config?: ContextyConfig, configPath?: string) {
     const { client, $ } = pluginInput;
     this.config = {enabled: true};
     if (config) this.config = config.tls;
-    if (configPath) this.configPath = configPath;
+    void configPath;
 
     const subsessionConfig: SubsessionConfig = {
       timeout: 30 * 1000,

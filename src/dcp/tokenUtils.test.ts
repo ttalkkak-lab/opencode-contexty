@@ -5,7 +5,7 @@ import {
   estimateTokensBatch,
   extractToolContent,
   getTotalToolTokens,
-} from './token-utils';
+} from './tokenUtils';
 import type { SessionState, ToolParameterEntry } from './types';
 
 function makeSessionState(toolParameters: Map<string, ToolParameterEntry>): SessionState {
@@ -54,7 +54,7 @@ function makeSessionState(toolParameters: Map<string, ToolParameterEntry>): Sess
   };
 }
 
-describe('token-utils', () => {
+describe('tokenUtils', () => {
   test('countTokens returns a positive count for text', () => {
     expect(countTokens('Hello world')).toBeGreaterThan(0);
   });

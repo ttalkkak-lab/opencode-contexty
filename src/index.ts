@@ -1,9 +1,7 @@
-import { tool, type Plugin, type PluginInput } from '@opencode-ai/plugin';
-import * as path from 'path';
-import * as fs from 'fs/promises';
+import { tool, type Config, type Plugin, type PluginInput } from '@opencode-ai/plugin';
 import { Logger } from './utils';
 import { AASMModule } from './aasm';
-import { GLOBAL_CONTEXTY_CONFIG_PATH } from './cli/config';
+import { loadContextyConfig } from './config/contextyConfig';
 import {
   createAASMChatHook,
   createHSCMMTransformHook,
@@ -17,7 +15,6 @@ import {
 } from './hooks';
 import { createAgentTool, createAcpmTool } from './tools';
 import { ACPMModule } from './acpm';
-import { ContextyConfig } from './types';
 import { TLSModule } from './tls';
 import { createLogger as createDCPLogger } from './dcp/logger';
 import { compressMessage } from './dcp/compress/message';
@@ -35,133 +32,43 @@ import {
   handleSweepCommand,
   handleManualToggleCommand,
 } from './dcp/commands';
-import { handleCompressionEvent } from './dcp/event-handler';
+import { handleCompressionEvent } from './dcp/eventHandler';
 import { renderSystemPrompt } from './dcp/prompts';
 import { stripHallucinationsFromString } from './dcp/messages/utils';
 import type { SessionState } from './dcp/types';
+import {
+  createEmptyDcpState,
+  getSessionIdFromEvent,
+  getSessionIdFromUnknown,
+} from './dcp/sessionState';
 import { readPruningState, writePruningState } from './hscmm/storage';
 import { sessionTracker } from './core/sessionTracker';
 
-function createEmptyDcpState(sessionId: string | null): SessionState {
-  return {
-    sessionId,
-    isSubAgent: false,
-    manualMode: false,
-    compressPermission: undefined,
-    pendingManualTrigger: null,
-    prune: {
-      tools: new Map(),
-      messages: {
-        byMessageId: new Map(),
-        blocksById: new Map(),
-        activeBlockIds: new Set(),
-        activeByAnchorMessageId: new Map(),
-        nextBlockId: 1,
-        nextRunId: 1,
-      },
-    },
-    nudges: {
-      contextLimitAnchors: new Set(),
-      turnNudgeAnchors: new Set(),
-      iterationNudgeAnchors: new Set(),
-    },
-    stats: {
-      pruneTokenCounter: 0,
-      totalPruneTokens: 0,
-    },
-    compressionTiming: {
-      pendingByCallId: new Map(),
-    },
-    toolParameters: new Map(),
-    subAgentResultCache: new Map(),
-    toolIdList: [],
-    messageIds: {
-      byRawId: new Map(),
-      byRef: new Map(),
-      nextRef: 1,
-    },
-    lastCompaction: 0,
-    currentTurn: 0,
-    variant: undefined,
-    modelContextLimit: undefined,
-    systemPromptTokens: undefined,
-  };
-}
+type SessionMessagesResponse = { data?: WithParts[] } | WithParts[];
 
-function getSessionIdFromValue(value: unknown): string | null {
-  if (!value || typeof value !== 'object') {
-    return null;
-  }
+type TextCompleteOutput = {
+  text: string;
+};
 
-  const candidate =
-    (value as { sessionID?: unknown; sessionId?: unknown }).sessionID ??
-    (value as { sessionID?: unknown; sessionId?: unknown }).sessionId;
+type SystemTransformInput = {
+  sessionID?: string;
+  model: unknown;
+};
 
-  return typeof candidate === 'string' && candidate.trim().length > 0 ? candidate : null;
-}
-
-function getDcpSessionIdFromEvent(input: { event: unknown }): string | null {
-  const event = input.event as {
-    properties?: { sessionID?: unknown; sessionId?: unknown; part?: unknown };
-    sessionID?: unknown;
-    sessionId?: unknown;
-    part?: unknown;
-  } | null;
-
-  return (
-    getSessionIdFromValue(event?.properties) ??
-    getSessionIdFromValue(event) ??
-    getSessionIdFromValue(event?.part) ??
-    null
-  );
-}
+type SystemTransformOutput = {
+  system: string[];
+};
 
 export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
   const { client, directory } = pluginInput;
 
   Logger.setClient(client);
 
-  const defaultConfig: ContextyConfig = {
-    aasm: {
-      mode: 'passive',
-    },
-    tls: {
-      enabled: true,
-    },
-  };
-
-  let config = defaultConfig;
-  const configPath = GLOBAL_CONTEXTY_CONFIG_PATH;
-
-  try {
-    try {
-      await fs.access(configPath);
-      const userConfig = JSON.parse(await fs.readFile(configPath, 'utf-8'));
-      config = {
-        ...defaultConfig,
-        aasm: { ...defaultConfig.aasm, ...userConfig.aasm },
-        hscmm: userConfig.hscmm,
-        acpm: userConfig.acpm,
-        tls: userConfig.tls,
-        dcp: userConfig.dcp,
-      };
-    } catch {
-      // Config file doesn't exist or is not accessible, ignore
-    }
-  } catch (error) {
-    Logger.warn(
-      `Failed to load config from ${configPath}: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
-  }
+  const { config, configPath } = await loadContextyConfig(directory);
 
   const aasm = new AASMModule(config, client, configPath);
   const tls = new TLSModule(pluginInput, config, configPath);
-  const acpm = new ACPMModule(
-    directory,
-    (config as { acpm?: { defaultPreset?: string } }).acpm?.defaultPreset
-  );
+  const acpm = new ACPMModule(directory, config.acpm?.defaultPreset);
   const dcpConfig = config.dcp;
   const dcpEnabled = Boolean(dcpConfig?.enabled);
   const dcpStateCache = dcpEnabled ? new Map<string, SessionState>() : null;
@@ -241,7 +148,7 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
       description: 'DCP compress conversation context into reusable blocks.',
       args: dcpConfig.compress.mode === 'message' ? messageArgs : rangeArgs,
       async execute(args, context) {
-        const sessionId = sessionTracker.getSessionId() ?? getSessionIdFromValue(context);
+        const sessionId = sessionTracker.getSessionId() ?? getSessionIdFromUnknown(context);
 
         if (!sessionId) {
           throw new Error('DCP compress requires an active session.');
@@ -305,12 +212,15 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
 
       sessionTracker.setSessionId(input.sessionID);
 
-      let messages: any[] = [];
+      let messages: WithParts[] = [];
       try {
         const messagesResponse = await client.session.messages({
           path: { id: input.sessionID },
         });
-        messages = Array.isArray(messagesResponse) ? messagesResponse : messagesResponse.data || [];
+        const normalizedResponse = messagesResponse as SessionMessagesResponse;
+        messages = Array.isArray(normalizedResponse)
+          ? normalizedResponse
+          : normalizedResponse.data ?? [];
       } catch {}
 
       const args = (input.arguments || '').trim().split(/\s+/).filter(Boolean);
@@ -389,7 +299,7 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
     ),
     ...(dcpEnabled
       ? {
-          'chat.text.complete': async (_input: any, output: { text: string }) => {
+          'chat.text.complete': async (_input: unknown, output: TextCompleteOutput) => {
             output.text = stripHallucinationsFromString(output.text);
           },
         }
@@ -397,7 +307,10 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
     'tool.execute.before': createToolExecuteBeforeHook(acpm, client),
     'tool.execute.after': createToolExecuteAfterHook(acpm),
     'permission.ask': createPermissionAskHook(acpm),
-    'experimental.chat.system.transform': async (input: any, output) => {
+    'experimental.chat.system.transform': async (
+      input: SystemTransformInput,
+      output: SystemTransformOutput
+    ) => {
       await acpmSystemTransformHook(input, output);
 
       if (!dcpEnabled || !dcpConfig) {
@@ -411,10 +324,11 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
     },
     ...(dcpEnabled && dcpConfig
       ? {
-          config: async (opencodeConfig: any) => {
+          config: async (opencodeConfig: Config) => {
+            const permissionConfig = opencodeConfig.permission as Record<string, unknown> | undefined;
             if (
               dcpConfig.compress.permission !== 'deny' &&
-              opencodeConfig.permission?.compress === false
+              permissionConfig?.compress === false
             ) {
               dcpLogger?.info('Compress permission is disabled by Opencode config.');
             }
@@ -440,7 +354,7 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
     ...(dcpEnabled && dcpConfig
       ? {
           event: async (input: { event: unknown }) => {
-            const sessionId = getDcpSessionIdFromEvent(input);
+            const sessionId = getSessionIdFromEvent(input.event);
             if (!sessionId) {
               return;
             }

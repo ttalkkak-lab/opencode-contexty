@@ -1,4 +1,4 @@
-import { describe, expect, test } from "../test-shim";
+import { describe, expect, test } from "../testShim";
 import { injectCompressNudges, injectMessageIds } from "./inject";
 import type { DCPConfig, SessionState, WithParts } from "../types";
 

@@ -1,7 +1,7 @@
-import { countAllMessageTokens } from "../token-utils";
+import { countAllMessageTokens } from "../tokenUtils";
 import { getActiveSummaryTokenUsage } from "../state/utils";
 import type { DCPConfig, SessionState, WithParts } from "../types";
-import { assignMessageRefs, formatMessageIdTag } from "../message-ids";
+import { assignMessageRefs, formatMessageIdTag } from "../messageIds";
 import { appendToLastTextPart, createSyntheticTextPart, createSyntheticUserMessage } from "./utils";
 
 const NUDGE_TAG = "[DCP context-limit nudge]";

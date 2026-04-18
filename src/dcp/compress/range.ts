@@ -1,13 +1,13 @@
-import { appendProtectedContent } from "./protected-content";
+import { appendProtectedContent } from "./protectedContent";
 import { finalizeSession } from "./pipeline";
 import { resolveRange } from "./search";
-import { validateNonOverlapping, validateSummaryPlaceholders } from "./range-utils";
+import { validateNonOverlapping, validateSummaryPlaceholders } from "./rangeUtils";
 import { applyCompressionState } from "./state";
 import { startCompressionTiming } from "./timing";
 import type { SearchContext, ToolContext, CompressRangeToolArgs } from "./types";
 import type { WithParts } from "../types";
 import type { NotificationEntry } from '../ui/notification';
-import { assignMessageRefs } from "../message-ids";
+import { assignMessageRefs } from "../messageIds";
 
 function validateArgs(args: CompressRangeToolArgs): void {
   if (typeof args.topic !== "string" || args.topic.trim().length === 0) {
