@@ -268,13 +268,13 @@ Create `contexty.config.json` in your project root:
 }
 ```
 
-| Option                     | Type                      | Default        | Description                                       |
-| -------------------------- | ------------------------- | -------------- | ------------------------------------------------- |
-| `acpm.defaultPreset`       | string                    | (none)         | Default permission preset name to load on startup |
-| `aasm.mode`  | `"active"` \| `"passive"` | `"passive"`    | Supervision mode                  |
-| `aasm.model`  | string                    | (host default) | LLM model for linting             |
-| `tls.enabled`              | boolean                   | `true`         | Enable TLS globally                               |
-| `tls.model`                | string                    | (host default) | LLM model for summarization                       |
+| Option               | Type                      | Default        | Description                                       |
+| -------------------- | ------------------------- | -------------- | ------------------------------------------------- |
+| `acpm.defaultPreset` | string                    | (none)         | Default permission preset name to load on startup |
+| `aasm.mode`          | `"active"` \| `"passive"` | `"passive"`    | Supervision mode                                  |
+| `aasm.model`         | string                    | (host default) | LLM model for linting                             |
+| `tls.enabled`        | boolean                   | `true`         | Enable TLS globally                               |
+| `tls.model`          | string                    | (host default) | LLM model for summarization                       |
 
 ---
 
@@ -285,6 +285,18 @@ From **ttalkkak-lab** (딸깍 연구소).
 "Ddalkkak" (딸깍) is the Korean onomatopoeia for a click — the snap of something fitting perfectly into place. That's what we're building: tools that just _click_.
 
 No configuration wrestling. No documentation spelunking. Install, and it works. That's ddalkkak.
+
+---
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=ttalkkak-lab%2Fopencode-contexty&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=ttalkkak-lab/opencode-contexty&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=ttalkkak-lab/opencode-contexty&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=ttalkkak-lab/opencode-contexty&type=date&legend=top-left" />
+ </picture>
+</a>
 
 ---
 
