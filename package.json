@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "description": "OpenCode Plugin for Vibe Engineering with HSCMM and AASM",
+  "description": "OpenCode plugin for Contexty workflows with HSCMM, AASM, ACPM, TLS, and DCP",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -38,14 +38,17 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun test",
-    "lint": "eslint src --ext .ts",
+    "lint": "node scripts/lint.mjs",
+    "deadcode": "tsc -p tsconfig.check.json --noEmit",
+    "check": "bun run typecheck && bun run lint && bun test && bun run deadcode",
     "format": "prettier --write \"src/**/*.ts\"",
     "prepublishOnly": "bun run build"
   },
   "packageManager": "bun@1.0.0",
   "dependencies": {
-    "@anthropic-ai/tokenizer": "latest",
+    "@anthropic-ai/tokenizer": "^0.0.4",
     "@opencode-ai/sdk": "^1.3.2"
   },
   "peerDependencies": {
@@ -53,7 +56,7 @@
   },
   "devDependencies": {
     "@opencode-ai/plugin": "^1.3.2",
-    "bun-types": "latest",
+    "bun-types": "^1.3.6",
     "tsup": "^8.5.1",
     "typescript": "^5.4.0"
   },

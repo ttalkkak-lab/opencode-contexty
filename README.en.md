@@ -22,7 +22,7 @@
 
 ### Context Engineering for OpenCode
 
-**HSCMM** (Human-supervised Context Management) + **AASM** (Active Agent-supervised Architecture) + **ACPM** (Active Context Permission Management) + **TLS** (Terminal Log Supervision)
+**HSCMM** (Human-supervised Context Management) + **AASM** (Active Agent-supervised Architecture) + **ACPM** (Active Context Permission Management) + **TLS** (Terminal Log Supervision) + **DCP** (Dynamic Context Pruning)
 
 [![npm version](https://img.shields.io/npm/v/@ttalkkak-lab/opencode-contexty?color=369eff&labelColor=black&logo=npm&style=flat-square)](https://www.npmjs.com/package/@ttalkkak-lab/opencode-contexty)
 [![License](https://img.shields.io/badge/license-Apache%202.0-white?labelColor=black&style=flat-square)](LICENSE)
@@ -64,7 +64,7 @@ That's Context Engineering.
 
 ### HSCMM: Context You Can See
 
-HSCMM persists all tool interactions to `.contexty/tool-parts.json`. Combined with the **VSCode Extension**:
+HSCMM persists tool interactions to `.contexty/sessions/<sessionId>/tool-parts.json`. The legacy root path `.contexty/tool-parts.json` remains read-only for backward compatibility. Combined with the **VSCode Extension**:
 
 - **Context Explorer** — See exactly what's in the AI's context via a tree view
 - **Manual Control** — Add files, folders, or text selections to context with one click
@@ -83,7 +83,7 @@ HSCMM persists all tool interactions to `.contexty/tool-parts.json`. Combined wi
 │  ├─ 📁 src/                             │
 │  │   ├─ 📄 index.ts                     │
 │  │   │   └─ L1-50: import { ... }   ✕   │
-│  │   └─ 📄 aasm/LLMLinter.ts            │
+│  │   └─ 📄 aasm/llmLinter.ts            │
 │  │       └─ Full file             ✕     │
 │  └─ 📁 tests/                           │
 │      └─ 📄 example.test.ts              │
@@ -236,7 +236,7 @@ For detailed options, see the [installation guide](installation.md).
 | **Remove**           | Inline remove buttons on parts and files in the tree view                             |
 | **Highlighting**     | Lines in context highlighted with a light blue background in the editor               |
 | **Auto-Refresh**     | Tree view updates when files change                                                   |
-| **Blacklist**        | Removed parts stored in `.contexty/tool-parts.blacklist.json` for permanent exclusion |
+| **Blacklist**        | Removed parts stored in `.contexty/sessions/<sessionId>/tool-parts.blacklist.json` for permanent exclusion |
 | **/ban**             | Bulk-blacklist all context parts matching a file path or glob pattern                 |
 
 ### Why a Separate Extension?
