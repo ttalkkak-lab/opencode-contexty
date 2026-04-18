@@ -74,13 +74,23 @@ async function collectFolderPermissionsWithDeps(
       continue;
     }
 
+    const resolvedPath = path.resolve(folderPath);
+    const cwd = process.cwd();
+    if (!resolvedPath.startsWith(cwd + path.sep) && resolvedPath !== cwd) {
+      const proceed = await yesNo(
+        `"${resolvedPath}" is outside the project directory. Continue?`,
+        false
+      );
+      if (!proceed) continue;
+    }
+
     const accessChoice = await select(
-      `Select access level for ${folderPath}:`,
+      `Select access level for ${resolvedPath}:`,
       FOLDER_ACCESS_OPTIONS,
       1
     );
 
-    permissions.push({ path: path.posix.normalize(folderPath), access: accessChoice as FolderAccess });
+    permissions.push({ path: resolvedPath, access: accessChoice as FolderAccess });
 
     const addAnother = await yesNo('Add another folder permission?', false);
     if (!addAnother) {
