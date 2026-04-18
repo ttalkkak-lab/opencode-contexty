@@ -32,14 +32,14 @@ export {
   countAllMessageTokens,
   extractToolContent,
   extractCompletedToolOutput,
-} from './token-utils';
+} from './tokenUtils';
 export {
   matchesGlob,
   isToolNameProtected,
   isFilePathProtected,
   getFilePathsFromParameters,
   DEFAULT_PROTECTED_TOOLS,
-} from './protected-patterns';
+} from './protectedPatterns';
 export {
   formatMessageRef,
   formatBlockRef,
@@ -52,4 +52,4 @@ export {
   filterProcessableMessages,
   isIgnoredUserMessage,
   getLastUserMessage,
-} from './message-ids';
+} from './messageIds';

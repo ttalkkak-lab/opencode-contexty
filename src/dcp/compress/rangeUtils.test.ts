@@ -6,7 +6,7 @@ import {
   parseBlockPlaceholders,
   validateNonOverlapping,
   validateSummaryPlaceholders,
-} from "./range-utils";
+} from "./rangeUtils";
 import type { SessionState } from "../types";
 
 const makeState = (): SessionState => ({

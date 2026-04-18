@@ -1,4 +1,4 @@
-import { DEFAULT_PROTECTED_TOOLS } from '../../protected-patterns';
+import { DEFAULT_PROTECTED_TOOLS } from '../../protectedPatterns';
 import type { DCPConfig } from '../../types';
 
 function formatList(values: string[]): string {

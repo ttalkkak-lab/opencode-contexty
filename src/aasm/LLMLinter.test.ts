@@ -1,17 +1,17 @@
 import { describe, test, expect, beforeEach, mock } from 'bun:test';
-import { LLMLinter } from './LLMLinter';
+import { LLMLinter } from './llmLinter';
 import type { LintResult } from '../types';
 
 describe('LLMLinter', () => {
   let linter: LLMLinter;
-  let mockSubsessionHelper: any;
+  let mocksubsessionHelper: any;
   const mockSessionID = 'session-123';
 
   beforeEach(() => {
-    mockSubsessionHelper = {
+    mocksubsessionHelper = {
       callLLM: mock(() => Promise.resolve('')),
     };
-    linter = new LLMLinter(mockSubsessionHelper);
+    linter = new LLMLinter(mocksubsessionHelper);
   });
 
   describe('lint', () => {
@@ -31,7 +31,7 @@ describe('LLMLinter', () => {
         confidence: 0.9,
       });
 
-      mockSubsessionHelper.callLLM = mock(() => Promise.resolve(llmResponse));
+      mocksubsessionHelper.callLLM = mock(() => Promise.resolve(llmResponse));
 
       const result = await linter.lint('Put all code in main.ts', mockSessionID);
 
@@ -52,7 +52,7 @@ describe('LLMLinter', () => {
   "confidence": 0.95
 }`;
 
-      mockSubsessionHelper.callLLM = mock(() => Promise.resolve(llmResponse));
+      mocksubsessionHelper.callLLM = mock(() => Promise.resolve(llmResponse));
 
       const result = await linter.lint('Create a new service', mockSessionID);
 
@@ -63,13 +63,13 @@ describe('LLMLinter', () => {
     });
 
     test('should throw error on LLM failure', async () => {
-      mockSubsessionHelper.callLLM = mock(() => Promise.reject(new Error('LLM unavailable')));
+      mocksubsessionHelper.callLLM = mock(() => Promise.reject(new Error('LLM unavailable')));
 
       await expect(linter.lint('Some prompt', mockSessionID)).rejects.toThrow('LLM unavailable');
     });
 
     test('should throw error on invalid response', async () => {
-      mockSubsessionHelper.callLLM = mock(() => Promise.resolve('Invalid JSON'));
+      mocksubsessionHelper.callLLM = mock(() => Promise.resolve('Invalid JSON'));
 
       await expect(linter.lint('Some prompt', mockSessionID)).rejects.toThrow(
         'Failed to parse LLM lint response'

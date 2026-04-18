@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { PluginInput, Hooks } from '@opencode-ai/plugin';
 import { readToolLog, readToolLogBlacklist, writeToolLogBlacklist } from '../hscmm';
-import { getFilePathsFromParameters, matchesGlob } from '../dcp/protected-patterns';
+import { getFilePathsFromParameters, matchesGlob } from '../dcp/protectedPatterns';
 import { sendIgnoredMessage } from '../dcp/ui/notification';
 import { createLogger as createDCPLogger } from '../dcp/logger';
 import { sessionTracker } from '../core/sessionTracker';

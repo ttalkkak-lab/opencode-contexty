@@ -1,4 +1,4 @@
-import { describe, expect, test } from "../test-shim";
+import { describe, expect, test } from "../testShim";
 import { buildPriorityMap, classifyMessagePriority } from "./priority";
 import type { SessionState, WithParts } from "../types";
 

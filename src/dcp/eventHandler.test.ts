@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { handleCompressionEvent } from "./event-handler";
+import { handleCompressionEvent } from "./eventHandler";
 import type { SessionState } from "./types";
 
 const makeState = (): SessionState => ({

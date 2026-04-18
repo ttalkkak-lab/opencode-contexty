@@ -14,7 +14,7 @@ import { ContextyConfig, DEFAULT_CONFIG, writeConfig, GLOBAL_CONTEXTY_CONFIG_PAT
 import { IDEType, installIDEExtension, getIDEDisplayName, isValidIDE } from './ide.js';
 import { registerPlugin } from './plugin.js';
 import { prompt, promptSelect, promptYesNo } from './prompt.js';
-import { runConfigCommand } from './config-command.js';
+import { runConfigCommand } from './configCommand.js';
 
 // ============================================================================
 // CLI Arguments
@@ -117,7 +117,7 @@ async function runInteractive(): Promise<{ config: CliConfig; ide: IDEType }> {
 
   // 0. IDE Selection
   const ideChoice = await promptSelect(
-    'Which IDE do you want to install the HSCMM extension for?',
+    'Which IDE do you want to install the Contexty extension for?',
     [
       'vscode - Visual Studio Code',
       'vscode-insiders - VS Code Insiders',
@@ -160,6 +160,7 @@ async function runInteractive(): Promise<{ config: CliConfig; ide: IDEType }> {
   const config: CliConfig = {
     $schema: DEFAULT_CONFIG.$schema,
     aasm: { mode: aasmMode },
+    tls: { enabled: true },
   };
 
   if (model) {
@@ -180,6 +181,7 @@ function runNonInteractive(values: CliValues): CliConfig {
   const config: CliConfig = {
     $schema: DEFAULT_CONFIG.$schema,
     aasm: { mode: aasmMode },
+    tls: { enabled: true },
   };
 
   if (model) {

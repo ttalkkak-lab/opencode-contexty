@@ -46,11 +46,3 @@ export async function promptYesNo(question: string, defaultYes = true): Promise<
   if (!answer) return defaultYes;
   return answer.toLowerCase().startsWith('y');
 }
-
-export async function promptNumber(question: string, defaultValue: number): Promise<number> {
-  const answer = await prompt(`${question} (default: ${defaultValue}): `);
-  if (!answer) return defaultValue;
-
-  const num = parseFloat(answer);
-  return isNaN(num) ? defaultValue : num;
-}

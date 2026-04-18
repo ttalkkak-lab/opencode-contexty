@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from 'bun:test';
 import type { ACPMModule } from '../acpm';
 import type { Preset } from '../acpm/types';
-import { createSystemTransformHook } from './system-transform.acpm';
+import { createSystemTransformHook } from './systemTransform.acpm';
 
 const makePreset = (overrides: Partial<Preset> = {}): Preset => ({
   name: 'test',

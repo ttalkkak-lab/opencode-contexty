@@ -6,9 +6,9 @@ import os from 'os';
 import path from 'path';
 import { ACPMModule } from './index';
 import type { Preset } from './types';
-import { createPermissionAskHook } from '../hooks/permission-ask.acpm';
-import { createSystemTransformHook } from '../hooks/system-transform.acpm';
-import { createToolExecuteBeforeHook } from '../hooks/tool-execute-before.acpm';
+import { createPermissionAskHook } from '../hooks/permissionAsk.acpm';
+import { createSystemTransformHook } from '../hooks/systemTransform.acpm';
+import { createToolExecuteBeforeHook } from '../hooks/toolExecuteBefore.acpm';
 
 const makePreset = (overrides: Partial<Preset> = {}): Preset => ({
   name: 'test',

@@ -1,5 +1,5 @@
-import { isIgnoredUserMessage } from '../message-ids';
-import { countTokens } from '../token-utils';
+import { isIgnoredUserMessage } from '../messageIds';
+import { countTokens } from '../tokenUtils';
 import { formatTokenCount } from './notification';
 import type { SessionState, WithParts } from '../types';
 

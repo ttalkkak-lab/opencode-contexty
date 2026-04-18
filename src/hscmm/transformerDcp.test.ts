@@ -177,7 +177,7 @@ describe('HSCMM transformer with DCP', () => {
   let hook: ReturnType<typeof createHSCMMTransformHook>;
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'contexty-transformer-dcp-'));
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'contexty-transformerDcp-'));
     sessionTracker.clearSessionId();
   });
 

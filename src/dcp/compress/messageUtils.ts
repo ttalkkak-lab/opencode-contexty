@@ -1,4 +1,4 @@
-import { parseMessageRef } from "../message-ids";
+import { parseMessageRef } from "../messageIds";
 import type { WithParts } from "../types";
 
 function unique(values: string[]): string[] {

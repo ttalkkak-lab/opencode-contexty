@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { DEFAULT_PROTECTED_TOOLS } from '../protected-patterns';
+import { DEFAULT_PROTECTED_TOOLS } from '../protectedPatterns';
 import type { DCPConfig, SessionState, ToolParameterEntry } from '../types';
 import { deduplicate } from './deduplication';
 

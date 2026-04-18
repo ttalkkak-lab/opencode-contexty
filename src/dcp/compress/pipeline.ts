@@ -1,8 +1,8 @@
-import { formatMessageIdTag, isIgnoredUserMessage } from "../message-ids";
-import { countTokens, getCurrentParams } from "../token-utils";
+import { formatMessageIdTag, isIgnoredUserMessage } from "../messageIds";
+import { countTokens, getCurrentParams } from "../tokenUtils";
 import type { DCPLogger } from "../logger";
 import type { DCPConfig, SessionState, ToolParameterEntry, ToolPart, WithParts } from "../types";
-import { getMessageToolIds } from "./message-utils";
+import { getMessageToolIds } from "./messageUtils";
 import { sendCompressNotification, type NotificationEntry } from '../ui/notification';
 import type { ToolContext } from './types';
 

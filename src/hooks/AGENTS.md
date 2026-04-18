@@ -8,8 +8,8 @@ Integration points that intercept OpenCode events to trigger HSCMM context modif
 ## WHERE TO LOOK
 | Task | Location | Notes |
 |------|----------|-------|
-| **AASM Intercept** | `chat-message.aasm.ts` | Intercepts user messages to run intent analysis |
-| **HSCMM Transform** | `messages-transform.hscmm.ts` | Modifies outgoing messages to inject/filter context |
+| **AASM Intercept** | `chatMessage.aasm.ts` | Intercepts user messages to run intent analysis |
+| **HSCMM Transform** | `messagesTransform.hscmm.ts` | Modifies outgoing messages to inject/filter context |
 | **Registry** | `index.ts` | Exports hooks for the plugin system |
 
 ## CONVENTIONS

@@ -1,6 +1,6 @@
 import type { OpencodeClient, UserMessage, Part } from '@opencode-ai/sdk';
 import type { AASMModule } from '../aasm';
-import { isAASMSubsession } from '../aasm/SubsessionHelper';
+import { isAASMSubsession } from '../aasm/subsessionHelper';
 import { sessionTracker } from '../core/sessionTracker';
 import { Logger } from '../utils';
 import * as fs from 'fs/promises';

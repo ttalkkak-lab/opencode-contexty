@@ -1,5 +1,5 @@
 import { runACPMWizard } from './acpm.js';
-import { success, info, error, warn } from './ui.js';
+import { success, info, warn } from './ui.js';
 import { promptYesNo } from './prompt.js';
 
 export async function runConfigCommand(): Promise<void> {

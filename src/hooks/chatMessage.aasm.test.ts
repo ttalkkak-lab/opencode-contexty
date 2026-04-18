@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { createAASMChatHook } from './chat-message.aasm';
+import { createAASMChatHook } from './chatMessage.aasm';
 
 function createClient() {
   return {

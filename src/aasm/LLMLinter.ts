@@ -1,4 +1,4 @@
-import type { LintResult, IntentAnalysis } from '../types';
+import type { LintResult } from '../types';
 import { Logger } from '../utils';
 import { buildLintPrompt, parseLintResponse } from './prompts';
 
@@ -9,7 +9,7 @@ interface LinterDependencies {
 export class LLMLinter {
   constructor(private subsessionHelper: LinterDependencies) {}
 
-  async lint(userPrompt: string, sessionID: string, intent?: IntentAnalysis): Promise<LintResult> {
+  async lint(userPrompt: string, sessionID: string): Promise<LintResult> {
     try {
       const prompt = buildLintPrompt(userPrompt);
       const response = await this.subsessionHelper.callLLM(prompt, sessionID);

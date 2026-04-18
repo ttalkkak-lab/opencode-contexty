@@ -1,6 +1,6 @@
 import * as _anthropicTokenizer from '@anthropic-ai/tokenizer';
 
-import { getLastUserMessage } from './message-ids';
+import { getLastUserMessage } from './messageIds';
 import { DCPLogger } from './logger';
 import type { SessionState, WithParts } from './types';
 

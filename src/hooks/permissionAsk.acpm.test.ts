@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from 'bun:test';
 import type { ACPMModule } from '../acpm';
 import type { Preset } from '../acpm/types';
-import { createPermissionAskHook } from './permission-ask.acpm';
+import { createPermissionAskHook } from './permissionAsk.acpm';
 
 const makePreset = (overrides: Partial<Preset> = {}): Preset => ({
   name: 'test',
