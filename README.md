@@ -29,7 +29,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue?labelColor=black&logo=typescript&style=flat-square)](https://www.typescriptlang.org/)
 [![Bun](https://img.shields.io/badge/Bun-runtime-f472b6?labelColor=black&logo=bun&style=flat-square)](https://bun.sh/)
 
-[English](README.en.md) | [한국어](README.md)
+[English](README.md) | [한국어](README.ko.md)
 
 </div>
 
