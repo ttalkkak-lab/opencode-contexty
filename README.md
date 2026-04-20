@@ -107,7 +107,7 @@ If you are already in an AI session, you can use the following prompt to start t
 
 ```text
 Follow the instructions here to install and configure opencode-contexty for my project:
-[https://raw.githubusercontent.com/ttalkkak-lab/opencode-contexty/refs/heads/main/installation.md](https://raw.githubusercontent.com/ttalkkak-lab/opencode-contexty/refs/heads/main/installation.md)
+https://raw.githubusercontent.com/ttalkkak-lab/opencode-contexty/refs/heads/main/installation.md
 ```
 
 ---
@@ -118,7 +118,6 @@ You can adjust the system's sensitivity via `contexty.config.json`.
 
 ```json
 {
-  "$schema": "[https://unpkg.com/@ttalkkak-lab/opencode-contexty/schema.json](https://unpkg.com/@ttalkkak-lab/opencode-contexty/schema.json)",
   "aasm": {
     "mode": "active",
     "model": "openai/gpt-5.3-codex-spark"

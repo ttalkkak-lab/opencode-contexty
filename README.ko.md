@@ -105,7 +105,7 @@ bunx @ttalkkak-lab/opencode-contexty init
 
 ```text
 아래 가이드를 참고하여 내 프로젝트에 opencode-contexty를 설치하고 설정해줘:
-[https://raw.githubusercontent.com/ttalkkak-lab/opencode-contexty/refs/heads/main/installation.md](https://raw.githubusercontent.com/ttalkkak-lab/opencode-contexty/refs/heads/main/installation.md)
+https://raw.githubusercontent.com/ttalkkak-lab/opencode-contexty/refs/heads/main/installation.md
 ```
 
 ---
@@ -116,7 +116,6 @@ bunx @ttalkkak-lab/opencode-contexty init
 
 ```json
 {
-  "$schema": "[https://unpkg.com/@ttalkkak-lab/opencode-contexty/schema.json](https://unpkg.com/@ttalkkak-lab/opencode-contexty/schema.json)",
   "aasm": {
     "mode": "active",
     "model": "openai/gpt-5.3-codex-spark"
