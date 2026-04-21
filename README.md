@@ -47,6 +47,10 @@ opencode-contexty focuses on three core values:
 2. **Control**: Developers precisely govern the AI's access permissions and reference scope.
 3. **Sustainability**: It intervenes in real-time to prevent architecture debt caused by a beginner's incorrect prompts or an AI's short-term decision-making.
 
+### Demo
+
+https://github.com/user-attachments/assets/c0855b63-7d8f-4565-ad07-f93a065fe5dc
+
 ---
 
 ## 2. Key Systems
