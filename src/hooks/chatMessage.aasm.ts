@@ -300,21 +300,6 @@ async function startBackgroundAnalysis(
     const severityLabel = lintResult.severity.toUpperCase();
     const detailDuration = lintResult.severity === 'critical' ? 15000 : 12000;
 
-    await client.tui.showToast({
-      body: {
-        title: `⚠️ AASM ${severityLabel}`,
-        message: [
-          `Intent: ${intent.intentType} (impact: ${intent.architecturalImpact})`,
-          `${lintResult.issues.length}개의 아키텍처 이슈 감지`,
-          issues,
-          '',
-          '백그라운드 검토가 완료되었습니다.',
-        ].join('\n'),
-        variant: lintResult.severity === 'critical' ? 'error' : 'warning',
-        duration: detailDuration,
-      },
-    });
-
     pendingDecisionBySession.set(sessionID, {
       anchorUserMessageID,
       issueCount: lintResult.issues.length,
@@ -323,11 +308,16 @@ async function startBackgroundAnalysis(
 
     await client.tui.showToast({
       body: {
-        title: '선택 필요: 유지/되돌리기',
-        message:
-          '변경 완료 후 처리 방식을 선택해 주세요. 다음 입력에 유지 또는 되돌리기를 입력하면 됩니다.',
-        variant: 'warning',
-        duration: 12000,
+        title: `⚠️ AASM ${severityLabel} — 유지 / 되돌리기`,
+        message: [
+          `Intent: ${intent.intentType} (impact: ${intent.architecturalImpact})`,
+          `${lintResult.issues.length}개의 아키텍처 이슈 감지`,
+          issues,
+          '',
+          '유지 또는 되돌리기를 입력해 처리 방식을 선택해 주세요.',
+        ].join('\n'),
+        variant: lintResult.severity === 'critical' ? 'error' : 'warning',
+        duration: detailDuration,
       },
     });
   } catch (error) {
