@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, mock } from 'bun:test';
-import { LLMLinter } from './llmLinter';
+import { LLMLinter } from './LLMLinter';
 import type { LintResult } from '../types';
 
 describe('LLMLinter', () => {
