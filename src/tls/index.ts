@@ -1,9 +1,9 @@
 import type { PluginInput } from '@opencode-ai/plugin';
 import type { ContextyConfig, SubsessionConfig } from '../types';
-import { SubsessionHelper } from '../aasm/subsessionHelper';
+import { SubsessionHelper } from '../aasm/SubsessionHelper';
 import { TlsResult, BunShellOutput } from './types';
-import { Shell } from './shell';
-import { TuiController } from './tuiController';
+import { Shell } from './Shell';
+import { TuiController } from './TuiController';
 import { getSummarizationPrompt } from './prompts';
 
 export class TLSModule {
