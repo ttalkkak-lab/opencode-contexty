@@ -8,8 +8,8 @@ import {
   SubsessionConfig,
 } from '../types';
 import { FileSystem, Logger } from '../utils';
-import { SubsessionHelper } from './subsessionHelper';
-import { LLMLinter } from './llmLinter';
+import { SubsessionHelper } from './SubsessionHelper';
+import { LLMLinter } from './LLMLinter';
 import { buildReviewPrompt } from './prompts';
 
 export class IntentAnalyzer {
