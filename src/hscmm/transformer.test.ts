@@ -29,6 +29,12 @@ function makeCompletedToolPart(overrides: Partial<ToolPart> & { id: string; mess
   };
 }
 
+function getToolLogParts(message: TestMessage): any[] {
+  return message.parts.filter(
+    (p: any) => p.type === 'tool' && p.metadata?.contexty?.source === 'tool-log'
+  );
+}
+
 describe('HSCMM Transformer', () => {
   let tempDir: string;
   let hook: ReturnType<typeof createHSCMMTransformHook>;
@@ -71,12 +77,10 @@ describe('HSCMM Transformer', () => {
     expect(content.parts).toHaveLength(1);
     expect(content.parts[0].id).toBe('tool-1');
 
-    // Check if part was removed from message (it should be, then re-injected)
-    // Wait, the hook removes them and then re-injects them.
-    // So output.messages[0].parts should contain the part, but with modified metadata.
-
-    expect(output.messages[0].parts).toHaveLength(1);
-    expect(output.messages[0].parts[0].metadata.contexty.source).toBe('tool-log');
+    // Tool part should be re-injected with tool-log source
+    const toolLogParts = getToolLogParts(output.messages[0]);
+    expect(toolLogParts).toHaveLength(1);
+    expect(toolLogParts[0].metadata.contexty.source).toBe('tool-log');
   });
 
   it('should deduplicate existing tool parts', async () => {
@@ -138,8 +142,9 @@ describe('HSCMM Transformer', () => {
         // File might not even exist if nothing was written, which is also fine
     }
 
-    // Should NOT be in message (it gets removed and not re-injected)
-    expect(output.messages[0].parts).toHaveLength(0);
+    // Should NOT have any tool-log parts in message
+    const toolLogParts = getToolLogParts(output.messages[0]);
+    expect(toolLogParts).toHaveLength(0);
   });
 
   it('should re-inject persisted parts into correct messages', async () => {
@@ -166,12 +171,13 @@ describe('HSCMM Transformer', () => {
 
     await hook(input, output);
 
-    expect(output.messages[0].parts).toHaveLength(1);
-    expect(output.messages[0].parts[0].id).toBe('tool-persisted');
-    expect(output.messages[0].parts[0].metadata.contexty.source).toBe('tool-log');
+    const toolLogParts = getToolLogParts(output.messages[0]);
+    expect(toolLogParts).toHaveLength(1);
+    expect(toolLogParts[0].id).toBe('tool-persisted');
+    expect(toolLogParts[0].metadata.contexty.source).toBe('tool-log');
   });
 
-  it('should fallback to last assistant message if messageID not found', async () => {
+  it('should drop orphaned tool parts whose message no longer exists', async () => {
     const oldMessageID = 'msg-old';
     const newMessageID = 'msg-new';
 
@@ -200,9 +206,13 @@ describe('HSCMM Transformer', () => {
 
     await hook(input, output);
 
-    expect(output.messages[0].parts).toHaveLength(1);
-    expect(output.messages[0].parts[0].id).toBe('tool-orphan');
-    // Should have originalMessageID metadata
-    expect(output.messages[0].parts[0].metadata.contexty.originalMessageID).toBe(oldMessageID);
+    // Orphaned parts should NOT be re-injected into any message
+    const toolLogParts = getToolLogParts(output.messages[0]);
+    expect(toolLogParts).toHaveLength(0);
+
+    // Orphaned parts should be cleaned up from persisted log
+    const logPath = path.join(storageDir, 'tool-parts.json');
+    const content = JSON.parse(await fs.readFile(logPath, 'utf-8')) as any;
+    expect(content.parts).toHaveLength(0);
   });
 });
