@@ -348,7 +348,7 @@ function formatContextMessage(
   for (const [label, value, fillChar] of rows) {
     const pct = barTotal > 0 ? (value / barTotal) * 100 : 0;
     const filled = barTotal > 0 ? Math.round((value / barTotal) * 30) : 0;
-    const bar = `${fillChar.repeat(Math.max(0, Math.min(30, filled)))}${'░'.repeat(Math.max(0, 30 - filled))}`;
+    const bar = `${fillChar.repeat(Math.max(0, Math.min(30, filled)))}${' '.repeat(Math.max(0, 30 - filled))}`;
     lines.push(`  ${label.padEnd(10)}│${bar}│ ${pct.toFixed(1)}%  ${formatTokenCount(value)}`);
   }
 
