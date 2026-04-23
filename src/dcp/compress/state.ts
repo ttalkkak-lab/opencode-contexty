@@ -1,22 +1,10 @@
-import { formatBlockRef, formatMessageIdTag } from "../messageIds";
+import { formatBlockRef, formatMessageIdTag, parseMessageRef } from "../messageIds";
 import { countTokens } from "../tokenUtils";
 import type { CompressionBlock, SessionState } from "../types";
 import { endCompressionTiming } from "./timing";
 import type { CompressionApplyInput } from "./types";
 
 export const COMPRESSED_BLOCK_HEADER = "[Compressed conversation section]";
-
-const MESSAGE_REF_PATTERN = /^m(\d{4})$/i;
-
-function parseMessageRef(ref: string): number | null {
-  const match = ref.trim().match(MESSAGE_REF_PATTERN);
-  if (!match) {
-    return null;
-  }
-
-  const value = Number.parseInt(match[1], 10);
-  return Number.isInteger(value) ? value : null;
-}
 
 function getCoveredRawMessageIds(state: SessionState, startId: string, endId: string): string[] {
   const startIndex = parseMessageRef(startId);

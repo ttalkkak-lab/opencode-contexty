@@ -20,7 +20,7 @@ import { filterProcessableMessages, assignMessageRefs } from '../dcp/messageIds'
 import { injectCompressNudges, injectMessageIds } from '../dcp/messages/inject';
 import { prune } from '../dcp/messages/prune';
 import { syncCompressionBlocks, buildToolIdList } from '../dcp/messages/sync';
-import { stripHallucinations } from '../dcp/messages/utils';
+import { stripHallucinations, getMessageParts } from '../dcp/messages/utils';
 import { applyPendingManualTrigger } from '../dcp/commands';
 import { stripStaleMetadata } from '../dcp/messages/inject';
 import { isMessageCompacted } from '../dcp/state/utils';
@@ -43,9 +43,6 @@ export interface StateAccess {
   persist: (sessionId: string, state: SessionState) => Promise<void>;
 }
 
-function getParts(message: WithParts): NonNullable<WithParts['parts']> {
-  return Array.isArray(message.parts) ? message.parts : [];
-}
 
 export async function resolveSessionId(messages: WithParts[]): Promise<string | null> {
   const trackedSessionId = sessionTracker.getSessionId();
@@ -190,7 +187,7 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, _
     const toolPartsFromMessages: ToolPart[] = [];
 
     for (const message of output.messages) {
-      for (const part of getParts(message)) {
+      for (const part of getMessageParts(message)) {
         if (
           part.type === 'tool' &&
           (part as any).metadata?.contexty?.source !== 'tool-log'
@@ -215,7 +212,7 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, _
     }
 
     for (const message of output.messages) {
-      message.parts = getParts(message).filter(
+      message.parts = getMessageParts(message).filter(
         (part) => part.type !== 'tool' && (part as any).metadata?.contexty?.source !== 'tool-log'
       );
     }
@@ -254,7 +251,7 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, _
           ...state,
           time: {
             ...time,
-            compacted: compacted ? true : false,
+            compacted,
           },
         },
       };
@@ -308,7 +305,7 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, _
     for (const message of output.messages) {
       const parts = partsByMessageID.get(message.info.id);
       if (parts && parts.length > 0) {
-        message.parts = [...getParts(message), ...parts];
+        message.parts = [...getMessageParts(message), ...parts];
       }
     }
   };

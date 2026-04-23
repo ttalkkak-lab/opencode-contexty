@@ -102,6 +102,5 @@ export function handleCompressionEvent(state: SessionState, event: CompressionEv
     return;
   }
 
-  const durationMs = endCompressionTiming(state, callId, blockId);
-  void durationMs;
+  endCompressionTiming(state, callId, blockId);
 }

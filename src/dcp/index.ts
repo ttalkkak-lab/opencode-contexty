@@ -9,6 +9,8 @@ export type {
   PruneMessagesState,
   PrunedMessageEntry,
   ToolParameterEntry,
+  ToolParameterEntryWithCallId,
+  MessageTokens,
   Nudges,
   MessageIdState,
   PendingManualTrigger,

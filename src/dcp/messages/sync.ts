@@ -1,8 +1,5 @@
 import type { SessionState, WithParts } from "../types";
-
-function getParts(message: WithParts): any[] {
-  return Array.isArray(message.parts) ? (message.parts as any[]) : [];
-}
+import { getMessageParts } from "./utils";
 
 function hasMessageReference(block: { anchorMessageId?: string; compressMessageId?: string }, ids: Set<string>): boolean {
   return ids.has(block.anchorMessageId ?? "") || ids.has(block.compressMessageId ?? "");
@@ -58,7 +55,7 @@ export function buildToolIdList(state: SessionState, messages: WithParts[]): str
   const toolIds: string[] = [];
 
   for (const message of messages) {
-    for (const part of getParts(message)) {
+    for (const part of getMessageParts(message)) {
       if (part?.type !== "tool" || typeof part.callID !== "string" || part.callID.length === 0) {
         continue;
       }

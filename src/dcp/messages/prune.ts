@@ -2,24 +2,14 @@ import { wrapCompressedSummary } from "../compress/state";
 import { deduplicate } from "../strategies/deduplication";
 import { purgeErrors } from "../strategies/purgeErrors";
 import { isMessageCompacted } from "../state/utils";
-import { replaceBlockIdsWithBlocked } from "./utils";
+import { replaceBlockIdsWithBlocked, getMessageParts } from "./utils";
 import type { DCPConfig, SessionState, ToolParameterEntry, WithParts } from "../types";
-
-export interface DCPLogger {
-  info?(message: string, meta?: Record<string, unknown>): void;
-  warn?(message: string, meta?: Record<string, unknown>): void;
-  error?(message: string, meta?: Record<string, unknown>): void;
-  debug?(message: string, meta?: Record<string, unknown>): void;
-}
+import type { DCPLogger } from "../logger";
 
 const PLACEHOLDER_QUESTION = "[Previous tool input cleared]";
 const PLACEHOLDER_TOOL_OUTPUT = "[Old tool result content cleared]";
 const PLACEHOLDER_ERROR_INPUT = "[Error tool input redacted]";
 const PLACEHOLDER_COMPACTED = "[Message covered by compression block]";
-
-function getToolParts(message: WithParts): any[] {
-  return Array.isArray(message.parts) ? (message.parts as any[]) : [];
-}
 
 function collectToolParameters(messages: WithParts[], state: SessionState): ToolParameterEntry[] {
   const toolParams: ToolParameterEntry[] = [];
@@ -27,28 +17,29 @@ function collectToolParameters(messages: WithParts[], state: SessionState): Tool
   messages.forEach((message, messageIndex) => {
     const turn = messageIndex + 1;
 
-    for (const part of getToolParts(message)) {
-      if (part?.type !== "tool" || typeof part.callID !== "string" || part.callID.length === 0) {
+    for (const part of getMessageParts(message)) {
+      const toolPart = part as { type: string; callID?: unknown; tool?: unknown; state?: { input?: unknown; status?: unknown; error?: unknown } };
+      if (toolPart?.type !== "tool" || typeof toolPart.callID !== "string" || toolPart.callID.length === 0) {
         continue;
       }
 
-      const entry: ToolParameterEntry & { callID?: string } = {
-        tool: typeof part.tool === "string" ? part.tool : "",
-        parameters: part.state?.input,
-        status: part.state?.status,
-        error: typeof part.state?.error === "string" ? part.state.error : undefined,
+      const callID = toolPart.callID;
+      const entry: ToolParameterEntry = {
+        tool: typeof toolPart.tool === "string" ? toolPart.tool : "",
+        parameters: toolPart.state?.input,
+        status: toolPart.state?.status as ToolParameterEntry["status"],
+        error: typeof toolPart.state?.error === "string" ? toolPart.state.error : undefined,
         turn,
-        callID: part.callID,
       };
 
       toolParams.push(entry);
-      state.toolParameters.set(part.callID, {
+      state.toolParameters.set(callID, {
         tool: entry.tool,
         parameters: entry.parameters,
         status: entry.status,
         error: entry.error,
         turn: entry.turn,
-        tokenCount: state.toolParameters.get(part.callID)?.tokenCount,
+        tokenCount: state.toolParameters.get(callID)?.tokenCount,
       });
     }
   });
@@ -56,7 +47,7 @@ function collectToolParameters(messages: WithParts[], state: SessionState): Tool
   return toolParams;
 }
 
-function markToolPartCompacted(part: any): void {
+function markToolPartCompacted(part: { state?: { time?: Record<string, unknown>; input?: unknown; output?: unknown } }): void {
   if (!part.state) {
     part.state = {};
   }
@@ -95,37 +86,36 @@ function getCompactedBlock(message: WithParts, state: SessionState): { blockId: 
   return { blockId, summary: block.summary };
 }
 
-export function pruneToolOutputs(messages: WithParts[], state: SessionState, config: DCPConfig): void {
-  void config;
-
+export function pruneToolOutputs(messages: WithParts[], state: SessionState): void {
   for (const message of messages) {
     if (isMessageCompacted(state, message)) {
       continue;
     }
 
-    for (const part of getToolParts(message)) {
-      if (part?.type !== "tool" || typeof part.callID !== "string") {
+    for (const part of getMessageParts(message)) {
+      const toolPart = part as { type: string; callID?: unknown; state?: { time?: Record<string, unknown>; compacted?: unknown; output?: unknown } };
+      if (toolPart?.type !== "tool" || typeof toolPart.callID !== "string") {
         continue;
       }
 
-      if (!state.prune.tools.has(part.callID)) {
+      if (!state.prune.tools.has(toolPart.callID)) {
         continue;
       }
 
-      if (part.state?.time?.compacted) {
+      if (toolPart.state?.time?.compacted) {
         continue;
       }
 
-      if (!part.state) {
-        part.state = {};
+      if (!toolPart.state) {
+        toolPart.state = {};
       }
 
-      if (!part.state.time) {
-        part.state.time = {};
+      if (!toolPart.state.time) {
+        toolPart.state.time = {};
       }
 
-      part.state.output = PLACEHOLDER_TOOL_OUTPUT;
-      part.state.time.compacted = true;
+      toolPart.state.output = PLACEHOLDER_TOOL_OUTPUT;
+      toolPart.state.time.compacted = true;
     }
   }
 }
@@ -136,24 +126,25 @@ export function pruneToolInputs(messages: WithParts[], state: SessionState): voi
       continue;
     }
 
-    for (const part of getToolParts(message)) {
-      if (part?.type !== "tool" || typeof part.callID !== "string") {
+    for (const part of getMessageParts(message)) {
+      const toolPart = part as { type: string; callID?: unknown; state?: { status?: unknown; input?: unknown } };
+      if (toolPart?.type !== "tool" || typeof toolPart.callID !== "string") {
         continue;
       }
 
-      if (!state.prune.tools.has(part.callID)) {
+      if (!state.prune.tools.has(toolPart.callID)) {
         continue;
       }
 
-      if (part.state?.status === "error") {
+      if (toolPart.state?.status === "error") {
         continue;
       }
 
-      if (!part.state) {
-        part.state = {};
+      if (!toolPart.state) {
+        toolPart.state = {};
       }
 
-      part.state.input = PLACEHOLDER_QUESTION;
+      toolPart.state.input = PLACEHOLDER_QUESTION;
     }
   }
 }
@@ -164,32 +155,31 @@ export function pruneToolErrors(messages: WithParts[], state: SessionState): voi
       continue;
     }
 
-    for (const part of getToolParts(message)) {
-      if (part?.type !== "tool" || typeof part.callID !== "string") {
+    for (const part of getMessageParts(message)) {
+      const toolPart = part as { type: string; callID?: unknown; state?: { status?: unknown; input?: unknown; output?: unknown } };
+      if (toolPart?.type !== "tool" || typeof toolPart.callID !== "string") {
         continue;
       }
 
-      if (!state.prune.tools.has(part.callID)) {
+      if (!state.prune.tools.has(toolPart.callID)) {
         continue;
       }
 
-      if (part.state?.status !== "error") {
+      if (toolPart.state?.status !== "error") {
         continue;
       }
 
-      if (!part.state) {
-        part.state = {};
+      if (!toolPart.state) {
+        toolPart.state = {};
       }
 
-      part.state.input = PLACEHOLDER_ERROR_INPUT;
-      part.state.output = PLACEHOLDER_ERROR_INPUT;
+      toolPart.state.input = PLACEHOLDER_ERROR_INPUT;
+      toolPart.state.output = PLACEHOLDER_ERROR_INPUT;
     }
   }
 }
 
 export function filterCompressedRanges(messages: WithParts[], state: SessionState, config: DCPConfig): void {
-  void config;
-
   for (const message of messages) {
     if (!isMessageCompacted(state, message)) {
       continue;
@@ -209,30 +199,24 @@ export function filterCompressedRanges(messages: WithParts[], state: SessionStat
       : compacted.summary;
 
     const wrapped = wrapCompressedSummary(compacted.blockId, summary);
-    const parts = getToolParts(message);
     const textPart = { type: "text", text: wrapped };
+    const toolParts = getMessageParts(message)
+      .filter((part) => part?.type === "tool")
+      .map((part) => {
+        markToolPartCompacted(part as Parameters<typeof markToolPartCompacted>[0]);
+        return part;
+      });
 
-    message.parts = [textPart, ...parts.filter((part) => part?.type === "tool").map((part) => {
-      markToolPartCompacted(part);
-      return part;
-    })];
-
-    for (const part of message.parts) {
-      if (part.type === "tool") {
-        markToolPartCompacted(part);
-      }
-    }
+    message.parts = [textPart, ...toolParts];
   }
 }
 
-export function prune(config: DCPConfig, state: SessionState, messages: WithParts[], logger: DCPLogger): void {
-  void logger;
-
+export function prune(config: DCPConfig, state: SessionState, messages: WithParts[], _logger: DCPLogger): void {
   const toolParams = collectToolParameters(messages, state);
   deduplicate(config, state, toolParams);
   purgeErrors(config, state, toolParams);
   filterCompressedRanges(messages, state, config);
-  pruneToolOutputs(messages, state, config);
+  pruneToolOutputs(messages, state);
   pruneToolInputs(messages, state);
   pruneToolErrors(messages, state);
 }

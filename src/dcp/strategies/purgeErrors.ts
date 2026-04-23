@@ -1,7 +1,5 @@
 import { DEFAULT_PROTECTED_TOOLS, isToolNameProtected } from '../protectedPatterns';
-import type { DCPConfig, SessionState, ToolParameterEntry } from '../types';
-
-type ToolParameterEntryWithCallId = ToolParameterEntry & { callID?: string };
+import type { DCPConfig, SessionState, ToolParameterEntry, ToolParameterEntryWithCallId } from '../types';
 
 export function purgeErrors(config: DCPConfig, state: SessionState, toolParams: ToolParameterEntry[]): void {
   if (!config.strategies.purgeErrors.enabled) {

@@ -32,11 +32,9 @@ function getToolParameters(message: WithParts): ToolParameterEntry[] {
 export function prepareSession(
   state: SessionState,
   messages: WithParts[],
-  config: DCPConfig,
+  _config: DCPConfig,
   logger: DCPLogger,
 ): ToolParameterEntry[] {
-  void config;
-
   const toolParameters: ToolParameterEntry[] = [];
   state.toolParameters.clear();
 

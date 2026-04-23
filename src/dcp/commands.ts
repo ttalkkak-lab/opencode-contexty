@@ -24,7 +24,7 @@ import type { DCPLogger } from './logger';
 // ---------------------------------------------------------------------------
 
 export interface CommandContext {
-  client: any;
+  client: unknown;
   state: SessionState;
   config: DCPConfig;
   logger: DCPLogger;
@@ -197,7 +197,7 @@ function getMessageTextTokenCount(message: WithParts): number {
 
 function getFirstUserMessageTextTokenCount(messages: WithParts[]): number {
   for (const message of messages) {
-    if ((message.info as any).role !== 'user' || isIgnoredUserMessage(message)) {
+    if (message.info.role !== 'user' || isIgnoredUserMessage(message)) {
       continue;
     }
 
@@ -208,7 +208,7 @@ function getFirstUserMessageTextTokenCount(messages: WithParts[]): number {
 }
 
 function getAssistantTotalTokens(message: WithParts): number {
-  const tokens = (message.info as any).tokens;
+  const tokens = message.info.tokens;
   if (!tokens || tokens.input === undefined) {
     return 0;
   }
@@ -225,14 +225,11 @@ function getAssistantTotalTokens(message: WithParts): number {
 export function analyzeTokens(
   state: SessionState,
   messages: WithParts[],
-  params: ReturnType<typeof getCurrentParams>
 ): TokenBreakdown {
-  void params;
-
   let total = 0;
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i];
-    if ((message.info as any).role !== 'assistant') {
+    if (message.info.role !== 'assistant') {
       continue;
     }
 
@@ -246,12 +243,11 @@ export function analyzeTokens(
   let system = state.systemPromptTokens;
   if (system === undefined) {
     const firstAssistant = messages.find((message) => {
-      const tokens = (message.info as any).tokens;
-      return (message.info as any).role === 'assistant' && tokens?.input !== undefined;
+      return message.info.role === 'assistant' && message.info.tokens?.input !== undefined;
     });
 
     if (firstAssistant) {
-      const tokens = (firstAssistant.info as any).tokens;
+      const tokens = firstAssistant.info.tokens!;
       const firstInputTokens =
         (tokens.input ?? 0) + (tokens.cache?.read ?? 0) + (tokens.cache?.write ?? 0);
       system = Math.max(0, firstInputTokens - getFirstUserMessageTextTokenCount(messages));
@@ -270,7 +266,7 @@ export function analyzeTokens(
       continue;
     }
 
-    const role = (message.info as any).role;
+    const role = message.info.role;
     if (role === 'user') {
       user += getMessageTextTokenCount(message);
       continue;
@@ -286,8 +282,8 @@ export function analyzeTokens(
       }
 
       toolsInContextCount += 1;
-      const toolState = part.state as any;
-      const inputText = toolState?.input === undefined ? '' : stringifyToolValue(toolState.input);
+      const toolPart = part as { type: string; state?: { input?: unknown } };
+      const inputText = toolPart.state?.input === undefined ? '' : stringifyToolValue(toolPart.state.input);
       const outputText = extractCompletedToolOutput(part);
       const tokenCount = countTokens(inputText) + (outputText ? countTokens(outputText) : 0);
 
@@ -324,9 +320,8 @@ export function analyzeTokens(
 function formatContextMessage(
   state: SessionState,
   messages: WithParts[],
-  params: ReturnType<typeof getCurrentParams>
 ): string {
-  const breakdown = analyzeTokens(state, messages, params);
+  const breakdown = analyzeTokens(state, messages);
   const sumOfComponents = breakdown.system + breakdown.user + breakdown.assistant + breakdown.tools;
   // Use the larger of API-reported total and the sum of estimated components so
   // individual bars never exceed 100%.  The API total can be lower than the
@@ -367,7 +362,7 @@ function formatContextMessage(
 export async function handleContextCommand(ctx: CommandContext): Promise<void> {
   const { client, state, logger, sessionId, messages } = ctx;
   const params = getCurrentParams(state, messages, logger);
-  const message = formatContextMessage(state, messages, params);
+  const message = formatContextMessage(state, messages);
   await sendIgnoredMessage(client, sessionId, message, params, logger);
   logger.info('Context command executed');
 }
@@ -468,10 +463,16 @@ export async function handleDecompressCommand(ctx: BlockCommandContext): Promise
   });
   const target = resolveCompressionTarget(state.prune.messages, targetBlockId);
   if (!target) {
+    logger.info('resolveCompressionTarget failed to find target for decompress', {
+      targetBlockId,
+      blocksByIdSize: state.prune.messages.blocksById.size,
+      blocksByIdKeys: Array.from(state.prune.messages.blocksById.keys()),
+      activeBlockIds: Array.from(state.prune.messages.activeBlockIds),
+    });
     await sendIgnoredMessage(
       client,
       sessionId,
-      `Compression ${targetBlockId} does not exist. ${{ sessionId, targetBlockId, blocksByIdSize: state.prune.messages.blocksById.size, blocksByIdKeys: Array.from(state.prune.messages.blocksById.keys()), activeBlockIds: Array.from(state.prune.messages.activeBlockIds) }}`,
+      `Compression ${targetBlockId} does not exist.`,
       params,
       logger
     );
@@ -626,8 +627,9 @@ function collectToolIdsAfterIndex(
     }
     const parts = Array.isArray(msg.parts) ? msg.parts : [];
     for (const part of parts) {
-      if (part.type === 'tool' && (part as any).callID && (part as any).tool) {
-        toolIds.push((part as any).callID);
+      const toolPart = part as { type: string; callID?: string; tool?: string };
+      if (toolPart.type === 'tool' && toolPart.callID && toolPart.tool) {
+        toolIds.push(toolPart.callID);
       }
     }
   }
@@ -812,9 +814,10 @@ export function applyPendingManualTrigger(
     if (msg.info.role !== 'user' || isIgnoredUserMessage(msg)) continue;
 
     for (const part of msg.parts ?? []) {
-      if (part.type !== 'text' || (part as any).ignored || (part as any).synthetic) continue;
+      const textPart = part as { type: string; ignored?: unknown; synthetic?: unknown; text?: string };
+      if (textPart.type !== 'text' || textPart.ignored || textPart.synthetic) continue;
 
-      (part as any).text = pending.prompt;
+      textPart.text = pending.prompt;
       state.pendingManualTrigger = null;
       logger.debug('Applied manual prompt', { sessionId: pending.sessionId });
       return;

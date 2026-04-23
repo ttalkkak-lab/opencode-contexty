@@ -2,13 +2,9 @@ import { countAllMessageTokens } from "../tokenUtils";
 import { getActiveSummaryTokenUsage } from "../state/utils";
 import type { DCPConfig, SessionState, WithParts } from "../types";
 import { assignMessageRefs, formatMessageIdTag } from "../messageIds";
-import { appendToLastTextPart, createSyntheticTextPart, createSyntheticUserMessage } from "./utils";
+import { appendToLastTextPart, createSyntheticTextPart, createSyntheticUserMessage, getMessageParts } from "./utils";
 
 const NUDGE_TAG = "[DCP context-limit nudge]";
-
-function getMessageParts(message: WithParts): any[] {
-  return Array.isArray(message.parts) ? (message.parts as any[]) : [];
-}
 
 function parseLimit(limit: DCPConfig["compress"]["maxContextLimit"], modelContextLimit: number | undefined): number | undefined {
   if (typeof limit === "number") {
@@ -41,7 +37,10 @@ function getLatestAnchorIndex(state: SessionState, messages: WithParts[]): numbe
 }
 
 function hasNudgeText(message: WithParts): boolean {
-  return getMessageParts(message).some((part) => part?.type === "text" && typeof part.text === "string" && part.text.includes(NUDGE_TAG));
+  return getMessageParts(message).some((part) => {
+    const textPart = part as { type: string; text?: unknown };
+    return textPart?.type === "text" && typeof textPart.text === "string" && textPart.text.includes(NUDGE_TAG);
+  });
 }
 
 function injectNudgeMessage(messages: WithParts[], nudgeText: string): WithParts {
@@ -111,7 +110,10 @@ export function injectMessageIds(state: SessionState, messages: WithParts[]): nu
 
     const tag = formatMessageIdTag(ref);
     const parts = getMessageParts(message);
-    const alreadyTagged = parts.some((part) => part?.type === "text" && typeof part.text === "string" && part.text.includes(tag));
+    const alreadyTagged = parts.some((part) => {
+      const textPart = part as { type: string; text?: unknown };
+      return textPart?.type === "text" && typeof textPart.text === "string" && textPart.text.includes(tag);
+    });
     if (alreadyTagged) {
       continue;
     }
@@ -127,16 +129,15 @@ export function injectMessageIds(state: SessionState, messages: WithParts[]): nu
 export function stripStaleMetadata(messages: WithParts[]): void {
   for (const message of messages) {
     for (const part of getMessageParts(message)) {
-      if (!part || typeof part !== "object") {
-        continue;
+      const p = part as Record<string, unknown>;
+
+      if ("metadata" in p) {
+        delete p.metadata;
       }
 
-      if ("metadata" in part) {
-        delete (part as { metadata?: unknown }).metadata;
-      }
-
-      if (part.type === "tool" && part.state && typeof part.state === "object" && "metadata" in part.state) {
-        delete part.state.metadata;
+      const state = p.state as Record<string, unknown> | undefined;
+      if (p.type === "tool" && state && "metadata" in state) {
+        delete state.metadata;
       }
     }
   }

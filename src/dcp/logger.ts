@@ -2,12 +2,18 @@ import { Logger as BaseLogger } from '../utils';
 
 export class DCPLogger {
   private prefix = '[DCP]';
+  private debugEnabled: boolean;
+
+  constructor(debugEnabled = false) {
+    this.debugEnabled = debugEnabled;
+  }
 
   info(message: string, data?: Record<string, unknown>): void {
     BaseLogger.info(`${this.prefix} ${message}`, data);
   }
 
   debug(message: string, data?: Record<string, unknown>): void {
+    if (!this.debugEnabled) return;
     BaseLogger.debug(`${this.prefix} ${message}`, data);
   }
 
@@ -21,6 +27,5 @@ export class DCPLogger {
 }
 
 export function createLogger(enabled: boolean): DCPLogger {
-  void enabled;
-  return new DCPLogger();
+  return new DCPLogger(enabled);
 }

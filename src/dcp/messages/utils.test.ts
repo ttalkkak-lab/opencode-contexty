@@ -4,7 +4,6 @@ import {
   appendToLastTextPart,
   appendToTextPart,
   appendToToolPart,
-  buildToolIdList,
   createSyntheticTextPart,
   createSyntheticUserMessage,
   hasContent,
@@ -12,6 +11,7 @@ import {
   stripHallucinations,
   stripHallucinationsFromString,
 } from "./utils";
+import { buildToolIdList } from "./sync";
 import type { SessionState, WithParts } from "../types";
 
 const baseMessage: WithParts = {

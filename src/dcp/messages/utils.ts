@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
-import type { SessionState, WithParts } from "../types";
-import { isMessageCompacted } from "../state/utils";
+import type { MessagePart, WithParts } from "../types";
+
+export function getMessageParts(message: WithParts): MessagePart[] {
+  return Array.isArray(message.parts) ? message.parts : [];
+}
 
 const SUMMARY_ID_HASH_LENGTH = 16;
 const DCP_BLOCK_ID_TAG_REGEX = /(<dcp-message-id(?=[\s>])[^>]*>)b\d+(<\/dcp-message-id>)/g;
@@ -18,26 +21,26 @@ export const createSyntheticUserMessage = (
   variant?: string,
   stableSeed?: string,
 ): WithParts => {
-  const userInfo = baseMessage.info as any;
+  const info = baseMessage.info;
   const now = Date.now();
-  const deterministicSeed = stableSeed?.trim() || userInfo.id;
+  const deterministicSeed = stableSeed?.trim() || info.id;
   const messageId = generateStableId("msg_dcp_summary", deterministicSeed);
   const partId = generateStableId("prt_dcp_summary", deterministicSeed);
 
   return {
     info: {
       id: messageId,
-      sessionID: userInfo.sessionID,
+      sessionID: info.sessionID,
       role: "user" as const,
-      agent: userInfo.agent,
-      model: userInfo.model,
+      agent: (info as Record<string, unknown>).agent,
+      model: (info as Record<string, unknown>).model,
       time: { created: now },
       ...(variant !== undefined && { variant }),
     },
     parts: [
       {
         id: partId,
-        sessionID: userInfo.sessionID,
+        sessionID: info.sessionID,
         messageID: messageId,
         type: "text" as const,
         text: content,
@@ -51,21 +54,21 @@ export const createSyntheticTextPart = (
   content: string,
   stableSeed?: string,
 ) => {
-  const userInfo = baseMessage.info as any;
-  const deterministicSeed = stableSeed?.trim() || userInfo.id;
+  const info = baseMessage.info;
+  const deterministicSeed = stableSeed?.trim() || info.id;
   const partId = generateStableId("prt_dcp_text", deterministicSeed);
 
   return {
     id: partId,
-    sessionID: userInfo.sessionID,
-    messageID: userInfo.id,
+    sessionID: info.sessionID,
+    messageID: info.id,
     type: "text" as const,
     text: content,
   };
 };
 
 export const appendToLastTextPart = (message: WithParts, injection: string): boolean => {
-  const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
+  const parts = getMessageParts(message);
   for (let i = parts.length - 1; i >= 0; i--) {
     const part = parts[i];
     if (part.type === "text") {
@@ -76,7 +79,7 @@ export const appendToLastTextPart = (message: WithParts, injection: string): boo
   return false;
 };
 
-export const appendToTextPart = (part: any, injection: string): boolean => {
+export const appendToTextPart = (part: { type: string; text?: unknown }, injection: string): boolean => {
   if (typeof part.text !== "string") {
     return false;
   }
@@ -97,8 +100,7 @@ export const appendToTextPart = (part: any, injection: string): boolean => {
 
 export const appendToAllToolParts = (message: WithParts, tag: string): boolean => {
   let injected = false;
-  const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
-  for (const part of parts) {
+  for (const part of getMessageParts(message)) {
     if (part.type === "tool") {
       injected = appendToToolPart(part, tag) || injected;
     }
@@ -107,7 +109,7 @@ export const appendToAllToolParts = (message: WithParts, tag: string): boolean =
   return injected;
 };
 
-export const appendToToolPart = (part: any, tag: string): boolean => {
+export const appendToToolPart = (part: { type: string; state?: { status?: string; output?: unknown } }, tag: string): boolean => {
   const state = part.state;
   if (state?.status !== "completed" || typeof state.output !== "string") {
     return false;
@@ -122,34 +124,12 @@ export const appendToToolPart = (part: any, tag: string): boolean => {
 };
 
 export const hasContent = (message: WithParts): boolean => {
-  const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
-  return parts.some(
-    (part: any) =>
-      (part.type === "text" && typeof part.text === "string" && part.text.trim().length > 0) ||
-      (part.type === "tool" && part.state?.status === "completed" && typeof part.state.output === "string"),
+  return getMessageParts(message).some(
+    (part) =>
+      (part.type === "text" && typeof (part as { text?: unknown }).text === "string" && (part as { text: string }).text.trim().length > 0) ||
+      (part.type === "tool" && (part as { state?: { status?: string; output?: unknown } }).state?.status === "completed" && typeof (part as { state: { output?: unknown } }).state.output === "string"),
   );
 };
-
-export function buildToolIdList(state: SessionState, messages: WithParts[]): string[] {
-  const typedState = state as any;
-  const toolIds: string[] = [];
-
-  for (const msg of messages) {
-    if (isMessageCompacted(state, msg)) {
-      continue;
-    }
-
-    const parts = Array.isArray((msg as any).parts) ? (msg as any).parts : [];
-    for (const part of parts) {
-      if (part.type === "tool" && part.callID && part.tool) {
-        toolIds.push(part.callID);
-      }
-    }
-  }
-
-  typedState.toolIdList = toolIds;
-  return toolIds;
-}
 
 export const replaceBlockIdsWithBlocked = (text: string): string => {
   return text.replace(DCP_BLOCK_ID_TAG_REGEX, "$1BLOCKED$2");
@@ -161,14 +141,14 @@ export const stripHallucinationsFromString = (text: string): string => {
 
 export const stripHallucinations = (messages: WithParts[]): void => {
   for (const message of messages) {
-    const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
-    for (const part of parts) {
-      if (part.type === "text" && typeof part.text === "string") {
-        part.text = stripHallucinationsFromString(part.text);
+    for (const part of getMessageParts(message)) {
+      if (part.type === "text" && typeof (part as { text?: unknown }).text === "string") {
+        (part as { text: string }).text = stripHallucinationsFromString((part as { text: string }).text);
       }
 
-      if (part.type === "tool" && part.state?.status === "completed" && typeof part.state.output === "string") {
-        part.state.output = stripHallucinationsFromString(part.state.output);
+      const toolPart = part as { type: string; state?: { status?: string; output?: unknown } };
+      if (toolPart.type === "tool" && toolPart.state?.status === "completed" && typeof toolPart.state.output === "string") {
+        toolPart.state.output = stripHallucinationsFromString(toolPart.state.output);
       }
     }
   }

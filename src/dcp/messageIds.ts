@@ -126,16 +126,18 @@ export function isMessageWithInfo(message: unknown): message is WithParts {
     return false;
   }
 
-  const info = (message as any).info;
+  const candidate = message as Record<string, unknown>;
+  const info = candidate.info;
   if (!info || typeof info !== "object") {
     return false;
   }
 
-  if (typeof info.id !== "string" || !info.id.length) {
+  const infoRecord = info as Record<string, unknown>;
+  if (typeof infoRecord.id !== "string" || !infoRecord.id.length) {
     return false;
   }
 
-  if (typeof info.role !== "string" || !info.role.length) {
+  if (typeof infoRecord.role !== "string" || !infoRecord.role.length) {
     return false;
   }
 
@@ -155,18 +157,17 @@ export function isIgnoredUserMessage(message: WithParts): boolean {
     return false;
   }
 
-  const info = (message as any).info;
-  if (info.role !== "user") {
+  if (message.info.role !== "user") {
     return false;
   }
 
-  const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
+  const parts = Array.isArray(message.parts) ? message.parts : [];
   if (parts.length === 0) {
     return true;
   }
 
   for (const part of parts) {
-    if (!(part as any).ignored) {
+    if (!(part as { ignored?: unknown }).ignored) {
       return false;
     }
   }
@@ -182,7 +183,7 @@ export function getLastUserMessage(messages: WithParts[], startIndex?: number): 
       continue;
     }
 
-    if ((msg as any).info.role === "user" && !isIgnoredUserMessage(msg)) {
+    if (msg.info.role === "user" && !isIgnoredUserMessage(msg)) {
       return msg;
     }
   }
@@ -193,36 +194,35 @@ export function getLastUserMessage(messages: WithParts[], startIndex?: number): 
 export function assignMessageRefs(state: SessionState, messages: WithParts[]): number {
   let assigned = 0;
   let skippedSubAgentPrompt = false;
-  const messageIds: any = (state as any).messageIds;
+  const messageIds = state.messageIds;
 
   for (const [index, message] of messages.entries()) {
     if (isIgnoredUserMessage(message)) {
       continue;
     }
 
-    if (state.isSubAgent && !skippedSubAgentPrompt && (message as any).info.role === "user") {
+    if (state.isSubAgent && !skippedSubAgentPrompt && message.info.role === "user") {
       skippedSubAgentPrompt = true;
       continue;
     }
 
-    const rawMessageId = (message as any).info.id;
-    if (typeof rawMessageId !== "string" || rawMessageId.length === 0) {
-      (message as any).info.id = `msg_${index}`;
+    if (typeof message.info.id !== "string" || message.info.id.length === 0) {
+      message.info.id = `msg_${index}`;
     }
 
-    const normalizedRawMessageId = (message as any).info.id;
+    const rawMessageId = message.info.id;
 
-    const existingRef = messageIds.byRawId.get(normalizedRawMessageId);
+    const existingRef = messageIds.byRawId.get(rawMessageId);
     if (existingRef) {
-      if (messageIds.byRef.get(existingRef) !== normalizedRawMessageId) {
-        messageIds.byRef.set(existingRef, normalizedRawMessageId);
+      if (messageIds.byRef.get(existingRef) !== rawMessageId) {
+        messageIds.byRef.set(existingRef, rawMessageId);
       }
       continue;
     }
 
     const ref = allocateNextMessageRef(state);
-    messageIds.byRawId.set(normalizedRawMessageId, ref);
-    messageIds.byRef.set(ref, normalizedRawMessageId);
+    messageIds.byRawId.set(rawMessageId, ref);
+    messageIds.byRef.set(ref, rawMessageId);
     assigned++;
   }
 
@@ -230,7 +230,7 @@ export function assignMessageRefs(state: SessionState, messages: WithParts[]): n
 }
 
 function allocateNextMessageRef(state: SessionState): string {
-  const messageIds: any = (state as any).messageIds;
+  const messageIds = state.messageIds;
   let candidate = Number.isInteger(messageIds.nextRef)
     ? Math.max(MESSAGE_REF_MIN_INDEX, messageIds.nextRef)
     : MESSAGE_REF_MIN_INDEX;

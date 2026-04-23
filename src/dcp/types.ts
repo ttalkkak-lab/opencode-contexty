@@ -23,12 +23,20 @@ export interface ToolPart {
 
 export type MessagePart = TextPart | ToolPart | { type: string; [key: string]: unknown };
 
+export interface MessageTokens {
+  input?: number;
+  output?: number;
+  reasoning?: number;
+  cache?: { read?: number; write?: number };
+}
+
 export interface WithParts {
   info: {
     id: string;
     role: string;
     sessionID?: string;
     time?: { created: number; [key: string]: unknown };
+    tokens?: MessageTokens;
     [key: string]: unknown;
   };
   parts?: MessagePart[];
@@ -42,6 +50,8 @@ export interface ToolParameterEntry {
   turn: number;
   tokenCount?: number;
 }
+
+export type ToolParameterEntryWithCallId = ToolParameterEntry & { callID?: string };
 
 export interface PrunedMessageEntry {
   tokenCount: number;
