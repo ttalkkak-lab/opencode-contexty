@@ -74,6 +74,8 @@ export interface SubsessionConfig {
 export interface ContextyConfig {
   /** Optional JSON schema declaration */
   $schema?: string;
+  /** Enable file logging (contexty.log). Disabled by default. */
+  logging?: boolean;
   /** HSCMM settings (Optional in this subset) */
   hscmm?: {
     maxTokens: number;

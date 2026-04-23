@@ -75,9 +75,14 @@ export class FileSystem {
 export class Logger {
   private static client: OpencodeClient | null = null;
   private static serviceName = 'contexty';
+  private static fileLogging = false;
 
   static setClient(client: OpencodeClient) {
     this.client = client;
+  }
+
+  static setFileLogging(enabled: boolean) {
+    this.fileLogging = enabled;
   }
 
   private static logToServer(
@@ -85,11 +90,13 @@ export class Logger {
     message: string,
     extra?: Record<string, unknown>
   ) {
-    fs.appendFile(
-      'contexty.log',
-      `[${new Date().toISOString()}] [${level.toUpperCase()}] ${message} ${extra ? JSON.stringify(extra) : ''}\n`,
-      'utf-8'
-    );
+    if (this.fileLogging) {
+      fs.appendFile(
+        'contexty.log',
+        `[${new Date().toISOString()}] [${level.toUpperCase()}] ${message} ${extra ? JSON.stringify(extra) : ''}\n`,
+        'utf-8'
+      );
+    }
     if (this.client) {
       this.client.app
         .log({
