@@ -10,6 +10,11 @@
       "type": "string",
       "description": "JSON Schema reference"
     },
+    "logging": {
+      "type": "boolean",
+      "default": false,
+      "description": "Enable file logging (contexty.log). Disabled by default."
+    },
     "aasm": {
       "type": "object",
       "additionalProperties": false,

@@ -2,6 +2,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { GLOBAL_CONTEXTY_CONFIG_PATH } from './paths';
 import type { ContextyConfig } from '../types';
+import type { DCPConfig } from '../dcp/types';
 
 export const CONTEXTY_CONFIG_SCHEMA_URL =
   'https://unpkg.com/@ttalkkak-lab/opencode-contexty/schema.json';
@@ -39,6 +40,40 @@ function mergeOptionalObject<T extends Record<string, unknown>>(
   } as T;
 }
 
+function mergeDcpConfig(
+  base: DCPConfig | undefined,
+  override: DCPConfig | undefined
+): DCPConfig | undefined {
+  if (!base && !override) {
+    return undefined;
+  }
+  if (!override) return base;
+  if (!base) return override;
+
+  const baseStrategies = base.strategies ?? {};
+  const overrideStrategies = override.strategies ?? {};
+
+  return {
+    ...base,
+    ...override,
+    compress: { ...base.compress, ...override.compress },
+    commands: { ...base.commands, ...override.commands },
+    manualMode: { ...base.manualMode, ...override.manualMode },
+    turnProtection: { ...base.turnProtection, ...override.turnProtection },
+    experimental: { ...base.experimental, ...override.experimental },
+    strategies: {
+      deduplication: {
+        ...baseStrategies.deduplication,
+        ...overrideStrategies.deduplication,
+      },
+      purgeErrors: {
+        ...baseStrategies.purgeErrors,
+        ...overrideStrategies.purgeErrors,
+      },
+    },
+  };
+}
+
 export function mergeContextyConfig(
   base: ContextyConfig,
   override?: Partial<ContextyConfig> | null
@@ -61,7 +96,7 @@ export function mergeContextyConfig(
     },
     hscmm: mergeOptionalObject(base.hscmm, override.hscmm),
     acpm: mergeOptionalObject(base.acpm, override.acpm),
-    dcp: override.dcp ?? base.dcp,
+    dcp: mergeDcpConfig(base.dcp, override.dcp as DCPConfig | undefined),
   };
 }
 

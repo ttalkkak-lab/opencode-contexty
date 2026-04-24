@@ -9,6 +9,7 @@ import { CONFIG_DIR_PATH, GLOBAL_CONTEXTY_CONFIG_PATH } from '../config/paths';
 
 export { OPENCODE_CONFIG_PATH, GLOBAL_CONTEXTY_CONFIG_PATH } from '../config/paths';
 export type { ContextyConfig } from '../types';
+export type { DCPConfig } from '../dcp/types';
 
 export const DEFAULT_CONFIG: ContextyConfig = DEFAULT_CONTEXTY_CONFIG;
 

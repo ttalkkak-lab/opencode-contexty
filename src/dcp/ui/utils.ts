@@ -94,5 +94,12 @@ export function cacheSystemPromptTokens(
         if (firstUserTokens > 0) break;
     }
 
-    state.systemPromptTokens = Math.max(0, firstInputTokens - firstUserTokens);
+    const estimate = Math.max(0, firstInputTokens - firstUserTokens);
+    // Keep the minimum estimate seen across all transforms: the system prompt is
+    // a constant so smaller observed values are more accurate.  Stale large
+    // values (from turns when many messages were present) are replaced once a
+    // newer, smaller estimate is available.
+    if (state.systemPromptTokens === undefined || estimate < state.systemPromptTokens) {
+        state.systemPromptTokens = estimate;
+    }
 }

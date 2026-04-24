@@ -327,7 +327,13 @@ function formatContextMessage(
   params: ReturnType<typeof getCurrentParams>
 ): string {
   const breakdown = analyzeTokens(state, messages, params);
-  const total = breakdown.total > 0 ? breakdown.total : breakdown.system + breakdown.user + breakdown.assistant + breakdown.tools;
+  const sumOfComponents = breakdown.system + breakdown.user + breakdown.assistant + breakdown.tools;
+  // Use the larger of API-reported total and the sum of estimated components so
+  // individual bars never exceed 100%.  The API total can be lower than the
+  // component sum when system/tools estimates are based on stale pre-compaction
+  // data while the last assistant turn already reflected a compacted context.
+  const barTotal = Math.max(breakdown.total > 0 ? breakdown.total : 0, sumOfComponents, 1);
+  const apiTotal = breakdown.total > 0 ? breakdown.total : sumOfComponents;
   const rows: Array<[string, number, string]> = [
     ['System', breakdown.system, '█'],
     ['User', breakdown.user, '▓'],
@@ -340,9 +346,9 @@ function formatContextMessage(
   lines.push('');
 
   for (const [label, value, fillChar] of rows) {
-    const pct = total > 0 ? (value / total) * 100 : 0;
-    const filled = total > 0 ? Math.round((value / total) * 30) : 0;
-    const bar = `${fillChar.repeat(Math.max(0, Math.min(30, filled)))}${'░'.repeat(Math.max(0, 30 - filled))}`;
+    const pct = barTotal > 0 ? (value / barTotal) * 100 : 0;
+    const filled = barTotal > 0 ? Math.round((value / barTotal) * 30) : 0;
+    const bar = `${fillChar.repeat(Math.max(0, Math.min(30, filled)))}${' '.repeat(Math.max(0, 30 - filled))}`;
     lines.push(`  ${label.padEnd(10)}│${bar}│ ${pct.toFixed(1)}%  ${formatTokenCount(value)}`);
   }
 
@@ -353,7 +359,7 @@ function formatContextMessage(
     );
   }
 
-  lines.push(`Current context: ~${formatTokenCount(total, true)} tokens`);
+  lines.push(`Current context: ~${formatTokenCount(apiTotal, true)} tokens`);
   lines.push('');
   return lines.join('\n');
 }

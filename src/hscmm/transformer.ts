@@ -267,7 +267,7 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, _
     ).map(refreshCompactedState);
 
     const mergedParts = [...refreshedPersistedParts, ...appendParts].filter(
-      (part) => !blacklistIds.has(part.id)
+      (part) => !blacklistIds.has(part.id) && messagesById.has(part.messageID)
     );
 
     if (appendParts.length > 0 || persistedSpec.parts.length !== mergedParts.length) {
@@ -278,23 +278,10 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, _
       return;
     }
 
-    const reversedMessages = [...output.messages].reverse();
-    const lastAssistantMessage = reversedMessages.find((m) => m.info.role === 'assistant');
-    const fallbackMessageID =
-      lastAssistantMessage?.info.id ?? output.messages[output.messages.length - 1]?.info.id;
-
     const partsByMessageID = new Map<string, ToolPart[]>();
 
     for (const part of mergedParts) {
-      const resolvedMessageID = messagesById.has(part.messageID)
-        ? part.messageID
-        : fallbackMessageID;
-
-      if (!resolvedMessageID) {
-        continue;
-      }
-
-      const resolvedMessage = messagesById.get(resolvedMessageID);
+      const resolvedMessage = messagesById.get(part.messageID);
       if (!resolvedMessage || (dcpState && isMessageCompacted(dcpState, resolvedMessage))) {
         continue;
       }
@@ -303,23 +290,19 @@ export function createHSCMMTransformHook(directory: string, acpm?: ACPMModule, _
 
       const taggedPart: ToolPart = {
         ...part,
-        messageID: resolvedMessageID,
         metadata: {
           ...part.metadata,
           contexty: {
             ...contextyMetadata,
             source: 'tool-log',
-            ...(resolvedMessageID !== part.messageID
-              ? { originalMessageID: part.messageID }
-              : {}),
           },
         },
       };
 
-      if (!partsByMessageID.has(resolvedMessageID)) {
-        partsByMessageID.set(resolvedMessageID, []);
+      if (!partsByMessageID.has(part.messageID)) {
+        partsByMessageID.set(part.messageID, []);
       }
-      partsByMessageID.get(resolvedMessageID)!.push(taggedPart);
+      partsByMessageID.get(part.messageID)!.push(taggedPart);
     }
 
     for (const message of output.messages) {

@@ -66,6 +66,8 @@ export const ContextyPlugin: Plugin = async (pluginInput: PluginInput) => {
 
   const { config, configPath } = await loadContextyConfig(directory);
 
+  Logger.setFileLogging(Boolean(config.logging));
+
   const aasm = new AASMModule(config, client, configPath);
   const tls = new TLSModule(pluginInput, config, configPath);
   const acpm = new ACPMModule(directory, config.acpm?.defaultPreset);

@@ -10,7 +10,7 @@ import { join } from 'path';
 import { execSync } from 'child_process';
 
 import { colors, log, info, error, success, banner } from './ui.js';
-import { ContextyConfig, DEFAULT_CONFIG, writeConfig, GLOBAL_CONTEXTY_CONFIG_PATH } from './config.js';
+import { ContextyConfig, DCPConfig, DEFAULT_CONFIG, writeConfig, GLOBAL_CONTEXTY_CONFIG_PATH } from './config.js';
 import { IDEType, installIDEExtension, getIDEDisplayName, isValidIDE } from './ide.js';
 import { registerPlugin } from './plugin.js';
 import { prompt, promptSelect, promptYesNo } from './prompt.js';
@@ -25,6 +25,9 @@ interface CliValues {
   ide: string;
   'aasm-mode': string;
   model: string;
+  dcp: boolean;
+  'dcp-permission': string;
+  'dcp-max-context': string;
   help: boolean;
   version: boolean;
 }
@@ -40,6 +43,9 @@ const DEFAULT_CLI_VALUES: CliValues = {
   ide: 'vscode',
   'aasm-mode': 'passive',
   model: '',
+  dcp: false,
+  'dcp-permission': 'allow',
+  'dcp-max-context': '80%',
   help: false,
   version: false,
 };
@@ -53,6 +59,9 @@ function parseCliArgs(): { values: CliValues; positionals: string[] } {
         ide: { type: 'string', default: 'vscode' },
         'aasm-mode': { type: 'string', default: 'passive' },
         model: { type: 'string', default: '' },
+        dcp: { type: 'boolean', default: false },
+        'dcp-permission': { type: 'string', default: 'allow' },
+        'dcp-max-context': { type: 'string', default: '80%' },
         help: { type: 'boolean', short: 'h', default: false },
         version: { type: 'boolean', short: 'v', default: false },
       },
@@ -82,6 +91,9 @@ ${colors.bold}Init Options:${colors.reset}
   --ide=<ide>                   IDE for extension: vscode (default) | vscode-insiders | vscodium | cursor | windsurf | none
   --aasm-mode=<mode>            Set AASM mode: passive (default) | active
   --model=<model>               Set custom model for AASM (optional)
+  --dcp                         Enable DCP (Dynamic Context Pruning)
+  --dcp-permission=<perm>       Compression permission: allow (default) | ask | deny
+  --dcp-max-context=<val>       Context limit threshold, e.g. 80% (default) or 150000
   -h, --help                    Show this help message
   -v, --version                 Show version
 
@@ -104,6 +116,54 @@ ${colors.bold}Examples:${colors.reset}
   ${colors.dim}# Configure project-local ACPM permissions${colors.reset}
   npx @ttalkkak-lab/opencode-contexty config
 `);
+}
+
+// ============================================================================
+// DCP Config Builder
+// ============================================================================
+
+function parseContextLimit(value: string): number | `${number}%` {
+  const trimmed = value.trim();
+  if (trimmed.endsWith('%')) {
+    return trimmed as `${number}%`;
+  }
+  const num = parseInt(trimmed, 10);
+  return isNaN(num) ? '80%' : num;
+}
+
+function buildDCPConfig(
+  compressPermission: 'ask' | 'allow' | 'deny',
+  maxContextLimit: number | `${number}%`,
+  autoStrategies: boolean
+): DCPConfig {
+  return {
+    enabled: true,
+    debug: false,
+    pruneNotification: 'minimal',
+    pruneNotificationType: 'toast',
+    commands: { enabled: true, protectedTools: [] },
+    manualMode: { enabled: true, automaticStrategies: autoStrategies },
+    turnProtection: { enabled: false, turns: 0 },
+    experimental: { allowSubAgents: false, customPrompts: false },
+    protectedFilePatterns: [],
+    compress: {
+      mode: 'range',
+      permission: compressPermission,
+      showCompression: true,
+      summaryBuffer: false,
+      maxContextLimit,
+      minContextLimit: '10%',
+      nudgeFrequency: 3,
+      iterationNudgeThreshold: 5,
+      nudgeForce: 'soft',
+      protectedTools: [],
+      protectUserMessages: false,
+    },
+    strategies: {
+      deduplication: { enabled: true, protectedTools: [] },
+      purgeErrors: { enabled: true, turns: 3, protectedTools: [] },
+    },
+  };
 }
 
 // ============================================================================
@@ -157,6 +217,54 @@ async function runInteractive(): Promise<{ config: CliConfig; ide: IDEType }> {
     }
   }
 
+  // 3. DCP (Dynamic Context Pruning)
+  const enableDCP = await promptYesNo(
+    'Enable DCP (Dynamic Context Pruning)?',
+    true
+  );
+  let dcp: DCPConfig | undefined;
+
+  if (enableDCP) {
+    // 3a. Compression permission
+    const permChoice = await promptSelect(
+      'How should the agent handle compression requests?',
+      [
+        'allow - Automatically allow compression (recommended)',
+        'ask   - Ask for confirmation each time',
+        'deny  - Disable compression (auto-strategies only)',
+      ],
+      0
+    );
+    const compressPermission = permChoice.split(' - ')[0].trim() as 'allow' | 'ask' | 'deny';
+
+    // 3b. Context limit threshold
+    const thresholdChoice = await promptSelect(
+      'At what context usage should the agent be nudged to compress?',
+      [
+        '70% - Aggressive (compress early)',
+        '80% - Balanced (recommended)',
+        '90% - Conservative (compress late)',
+        'custom - Enter manually',
+      ],
+      1
+    );
+    let maxContextLimit: number | `${number}%`;
+    if (thresholdChoice.startsWith('custom')) {
+      const customVal = await prompt('Enter threshold (e.g., 75% or 150000): ');
+      maxContextLimit = parseContextLimit(customVal || '80%');
+    } else {
+      maxContextLimit = thresholdChoice.split(' - ')[0].trim() as `${number}%`;
+    }
+
+    // 3c. Automatic strategies
+    const autoStrategies = await promptYesNo(
+      'Enable automatic strategies? (deduplication + error pruning)',
+      true
+    );
+
+    dcp = buildDCPConfig(compressPermission, maxContextLimit, autoStrategies);
+  }
+
   const config: CliConfig = {
     $schema: DEFAULT_CONFIG.$schema,
     aasm: { mode: aasmMode },
@@ -165,6 +273,10 @@ async function runInteractive(): Promise<{ config: CliConfig; ide: IDEType }> {
 
   if (model) {
     config.aasm.model = model;
+  }
+
+  if (dcp) {
+    config.dcp = dcp;
   }
 
   return { config, ide };
@@ -186,6 +298,14 @@ function runNonInteractive(values: CliValues): CliConfig {
 
   if (model) {
     config.aasm.model = model;
+  }
+
+  if (values.dcp) {
+    const rawPermission = values['dcp-permission'];
+    const compressPermission: 'ask' | 'allow' | 'deny' =
+      rawPermission === 'ask' || rawPermission === 'deny' ? rawPermission : 'allow';
+    const maxContextLimit = parseContextLimit(values['dcp-max-context'] || '80%');
+    config.dcp = buildDCPConfig(compressPermission, maxContextLimit, true);
   }
 
   return config;
@@ -306,12 +426,16 @@ async function main(): Promise<void> {
 
   // Print summary
   const ideInfo = getIDEDisplayName(ide);
+  const dcpSummary = config.dcp?.enabled
+    ? `enabled (permission: ${config.dcp.compress.permission}, limit: ${config.dcp.compress.maxContextLimit})`
+    : 'disabled';
   log(`
 ${colors.green}${colors.bold}✓ Setup complete!${colors.reset}
 
 ${colors.bold}Configuration:${colors.reset}
   AASM Mode:     ${config.aasm.mode}
   Model:         ${config.aasm.model || '(session default)'}
+  DCP:           ${dcpSummary}
   IDE Extension: ${ideInfo}
 
 ${colors.dim}Use 'npx @ttalkkak-lab/opencode-contexty config' to set up project-local ACPM permissions.${colors.reset}
